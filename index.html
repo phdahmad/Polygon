@@ -1,1 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Data Viewer</title>
+    <script>
+        const API_KEY = 'bpOvzfZ7COGtz0vsdI0S9tvlSQ4Q6saA'; // Replace with your Polygon.io API key
 
+        async function fetchStockData(tickers, interval) {
+            const endpoint = `https://api.polygon.io/v2/aggs/ticker/{ticker}/range/{multiplier}/{timespan}/2023-01-01/2023-12-31?apiKey=${API_KEY}`;
+            const multiplier = interval === '1D' ? 1 : parseInt(interval.split(' ')[0]);
+            const timespan = interval === '1D' ? 'day' : 'minute';
+
+            const dataPromises = tickers.map(async (ticker) => {
+                const url = endpoint.replace('{ticker}', ticker).replace('{multiplier}', multiplier).replace('{timespan}', timespan);
+                const response = await fetch(url);
+                const data = await response.json();
+
+                return { ticker, data };
+            });
+
+            const results = await Promise.all(dataPromises);
+
+            displayData(results);
+        }
+
+        function displayData(results) {
+            const tableBody = document.getElementById('dataTableBody');
+            tableBody.innerHTML = '';
+
+            results.forEach(({ ticker, data }) => {
+                if (data.results) {
+                    data.results.forEach((result) => {
+                        const row = document.createElement('tr');
+
+                        row.innerHTML = `
+                            <td>${ticker}</td>
+                            <td>${new Date(result.t).toLocaleString()}</td>
+                            <td>${result.v}</td>
+                            <td>${result.o}</td>
+                            <td>${result.h}</td>
+                            <td>${result.l}</td>
+                            <td>${result.c}</td>
+                        `;
+
+                        tableBody.appendChild(row);
+                    });
+                } else {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `<td colspan="7">No data available for ${ticker}</td>`;
+                    tableBody.appendChild(row);
+                }
+            });
+        }
+
+        function handleFetch() {
+            const tickers = document.getElementById('tickers').value.split(',').map(t => t.trim().toUpperCase());
+            const interval = document.getElementById('interval').value;
+
+            if (tickers.length === 0 || !interval) {
+                alert('Please provide tickers and select an interval.');
+                return;
+            }
+
+            fetchStockData(tickers, interval);
+        }
+    </script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            border: 1px solid #ccc;
+            padding: 8px;
+            text-align: center;
+        }
+        th {
+            background-color: #f4f4f4;
+        }
+    </style>
+</head>
+<body>
+    <h1>Stock Data Viewer</h1>
+
+    <div>
+        <label for="tickers">Enter Stock Tickers (comma-separated):</label><br>
+        <input type="text" id="tickers" placeholder="e.g., AAPL, MSFT, TSLA" style="width: 100%; margin: 8px 0;">
+    </div>
+
+    <div>
+        <label for="interval">Select Time Interval:</label><br>
+        <select id="interval" style="width: 100%; margin: 8px 0;">
+            <option value="">-- Select Interval --</option>
+            <option value="5">5 minutes</option>
+            <option value="10">10 minutes</option>
+            <option value="15">15 minutes</option>
+            <option value="60">1 hour</option>
+            <option value="240">4 hours</option>
+            <option value="1D">1 day</option>
+        </select>
+    </div>
+
+    <div>
+        <button onclick="handleFetch()" style="width: 100%; padding: 10px;">Fetch Stock Data</button>
+    </div>
+
+    <table style="margin-top: 20px;">
+        <thead>
+            <tr>
+                <th>Ticker</th>
+                <th>Timestamp</th>
+                <th>Volume</th>
+                <th>Open</th>
+                <th>High</th>
+                <th>Low</th>
+                <th>Close</th>
+            </tr>
+        </thead>
+        <tbody id="dataTableBody"></tbody>
+    </table>
+</body>
+</html>
