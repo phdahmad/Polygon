@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket Stock Ticker</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+        input {
+            padding: 8px;
+            font-size: 16px;
+        }
+        button {
+            padding: 8px 12px;
+            font-size: 16px;
+            margin-left: 10px;
+        }
+        #data {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            max-width: 500px;
+            word-wrap: break-word;
+        }
+    </style>
+</head>
+<body>
+    <h1>Polygon.io WebSocket Test</h1>
+    
+    <!-- Input field and button -->
+    <div>
+        <label for="ticker">Enter Ticker Symbol:</label>
+        <input type="text" id="ticker" placeholder="e.g. AAPL">
+        <button id="connectButton">Connect</button>
+    </div>
+
+    <!-- Display real-time data -->
+    <div id="data">
+        <p>Real-time data will appear here...</p>
+    </div>
+
+    <script>
+        // Store WebSocket connection
+        let ws;
+
+        // Function to initialize WebSocket connection
+        function connectWebSocket(ticker) {
+            const apiKey = '_rMexpT_eCLpzgwwarNCqIrvgDBdKuFc'; // Replace with your Polygon.io API Key
+            const url = `wss://socket.polygon.io/stocks`;
+
+            // Check if ticker is valid
+            if (!ticker) {
+                alert("Please enter a valid ticker symbol.");
+                return;
+            }
+
+            // Create the WebSocket connection
+            ws = new WebSocket(url);
+
+            // When the WebSocket connection is open
+            ws.onopen = function () {
+                console.log(`Connected to WebSocket for ${ticker}`);
+                // Send the subscription message
+                const message = {
+                    action: 'subscribe',
+                    symbols: [ticker]
+                };
+                ws.send(JSON.stringify(message));
+            };
+
+            // When a message is received from the WebSocket
+            ws.onmessage = function (event) {
+                const data = JSON.parse(event.data);
+                if (data ? data.sym : false) {
+                    document.getElementById('data').innerHTML = `
+                        <strong>Real-time Data for ${ticker}:</strong><br>
+                        Symbol: ${data.sym}<br>
+                        Price: $${data.price}<br>
+                        Size: ${data.size}<br>
+                        Timestamp: ${new Date(data.timestamp * 1000).toLocaleString()}
+                    `;
+                }
+            };
+
+            // When WebSocket encounters an error
+            ws.onerror = function (error) {
+                console.error("WebSocket Error:", error);
+                alert("Error with WebSocket connection.");
+            };
+
+            // When WebSocket connection is closed
+            ws.onclose = function () {
+                console.log(`WebSocket connection for ${ticker} closed`);
+            };
+        }
+
+        // Handle the "Connect" button click
+        document.getElementById('connectButton').onclick = function () {
+            const ticker = document.getElementById('ticker').value.toUpperCase();
+            connectWebSocket(ticker);
+        };
+    </script>
+</body>
+</html>
