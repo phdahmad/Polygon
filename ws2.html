@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Stock Price Viewer</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        #stock-data {
+            margin-top: 20px;
+        }
+        .stock-item {
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Live Stock Price Viewer</h1>
+    <label for="ticker">Enter Stock Ticker:</label>
+    <input type="text" id="ticker" placeholder="e.g., MSFT">
+    <button id="subscribe">Subscribe</button>
+
+    <div id="stock-data">
+        <h2>Stock Prices and Volumes:</h2>
+        <div id="prices"></div>
+    </div>
+
+    <script>
+        const API_KEY = '_rMexpT_eCLpzgwwarNCqIrvgDBdKuFc'; // Replace with your API key
+        const WS_URL = 'wss://socket.polygon.io/stocks';
+
+        let socket = new WebSocket(WS_URL);
+        let tickerSubscriptions = new Set();
+
+        const pricesDiv = document.getElementById('prices');
+
+        // Handle WebSocket connection
+        socket.onopen = () => {
+            console.log('WebSocket connection established.');
+
+            // Authenticate
+            socket.send(JSON.stringify({
+                action: 'auth',
+                params: API_KEY
+            }));
+        };
+
+        socket.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+
+            // Process incoming data
+            data.forEach(item => {
+                if (item.ev === 'T') { // Trade event
+                    updateStockData(item.sym, item.p, item.s);
+                }
+            });
+        };
+
+        socket.onclose = () => {
+            console.log('WebSocket connection closed.');
+        };
+
+        socket.onerror = (error) => {
+            console.error('WebSocket error:', error);
+        };
+
+        // Subscribe to a new ticker
+        document.getElementById('subscribe').addEventListener('click', () => {
+            const ticker = document.getElementById('ticker').value.toUpperCase();
+
+            if (ticker && !tickerSubscriptions.has(ticker)) {
+                tickerSubscriptions.add(ticker);
+                socket.send(JSON.stringify({
+                    action: 'subscribe',
+                    params: `T.${ticker}`
+                }));
+
+                addTickerToUI(ticker);
+            }
+        });
+
+        function addTickerToUI(ticker) {
+            const tickerDiv = document.createElement('div');
+            tickerDiv.id = `stock-${ticker}`;
+            tickerDiv.className = 'stock-item';
+            tickerDiv.innerHTML = `<strong>${ticker}:</strong> Price: <span id="price-${ticker}">Loading...</span>, Volume: <span id="volume-${ticker}">Loading...</span>`;
+            pricesDiv.appendChild(tickerDiv);
+        }
+
+        function updateStockData(ticker, price, volume) {
+            const priceSpan = document.getElementById(`price-${ticker}`);
+            const volumeSpan = document.getElementById(`volume-${ticker}`);
+
+            if (priceSpan) {
+                priceSpan.textContent = `$${price.toFixed(2)}`;
+            }
+
+            if (volumeSpan) {
+                volumeSpan.textContent = volume;
+            }
+        }
+    </script>
+</body>
+</html>
