@@ -3,119 +3,99 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebSocket Stock Ticker</title>
+    <title>Live Stock Price Viewer</title>
     <style>
         body {
             font-family: Arial, sans-serif;
-            padding: 20px;
+            margin: 20px;
         }
-        input {
-            padding: 8px;
-            font-size: 16px;
-        }
-        button {
-            padding: 8px 12px;
-            font-size: 16px;
-            margin-left: 10px;
-        }
-        #data {
+        #stock-data {
             margin-top: 20px;
-            padding: 10px;
-            border: 1px solid #ccc;
-            max-width: 500px;
-            word-wrap: break-word;
+        }
+        .stock-item {
+            margin-bottom: 10px;
         }
     </style>
 </head>
 <body>
-    <h1>Polygon.io WebSocket Test</h1>
-    
-    <!-- Input field and button -->
-    <div>
-        <label for="ticker">Enter Ticker Symbol:</label>
-        <input type="text" id="ticker" placeholder="e.g. AAPL">
-        <button id="connectButton">Connect</button>
-    </div>
+    <h1>Live Stock Price Viewer</h1>
+    <label for="ticker">Enter Stock Ticker:</label>
+    <input type="text" id="ticker" placeholder="e.g., MSFT">
+    <button id="subscribe">Subscribe</button>
 
-    <!-- Display real-time data -->
-    <div id="data">
-        <p>Real-time data will appear here...</p>
+    <div id="stock-data">
+        <h2>Stock Prices:</h2>
+        <div id="prices"></div>
     </div>
 
     <script>
-        // Store WebSocket connection
-        let ws;
-        let apiKey = "_rMexpT_eCLpzgwwarNCqIrvgDBdKuFc";  // Your Polygon.io API Key
+        const API_KEY = '_rMexpT_eCLpzgwwarNCqIrvgDBdKuFc'; // Replace with your API key
+        const WS_URL = 'wss://socket.polygon.io/stocks';
 
-        // Function to initialize WebSocket connection
-        function connectWebSocket(ticker) {
-            const url = "wss://socket.polygon.io/stocks";
+        let socket = new WebSocket(WS_URL);
+        let tickerSubscriptions = new Set();
 
-            if (!ticker) {
-                alert("Please enter a valid ticker symbol.");
-                return;
-            }
+        const pricesDiv = document.getElementById('prices');
 
-            // Create the WebSocket connection
-            ws = new WebSocket(url);
+        // Handle WebSocket connection
+        socket.onopen = () => {
+            console.log('WebSocket connection established.');
 
-            // When the WebSocket connection is open
-            ws.onopen = function () {
-                console.log("Connected to WebSocket.");
-                // Authenticate with Polygon.io API key
-                const authMessage = {
-                    action: "auth",
-                    params: apiKey
-                };
-                ws.send(JSON.stringify(authMessage));
+            // Authenticate
+            socket.send(JSON.stringify({
+                action: 'auth',
+                params: API_KEY
+            }));
+        };
 
-                // Subscribe to the ticker symbol
-                const subscribeMessage = {
-                    action: "subscribe",
-                    symbols: [ticker]
-                };
-                ws.send(JSON.stringify(subscribeMessage));
-                console.log(`Subscribed to ticker: ${ticker}`);
-            };
+        socket.onmessage = (event) => {
+            const data = JSON.parse(event.data);
 
-            // When a message is received from the WebSocket
-            ws.onmessage = function (event) {
-                try {
-                    const data = JSON.parse(event.data);
-                    console.log("Data received:", data);
-
-                    // Check if the data contains the ticker symbol
-                    if (data.sym) {
-                        document.getElementById('data').innerHTML = `
-                            <strong>Real-time Data for ${ticker}:</strong><br>
-                            Symbol: ${data.sym}<br>
-                            Price: $${data.price}<br>
-                            Size: ${data.size}<br>
-                            Timestamp: ${new Date(data.timestamp * 1000).toLocaleString()}
-                        `;
-                    }
-                } catch (error) {
-                    console.error("Error parsing message:", error);
+            // Process incoming data
+            data.forEach(item => {
+                if (item.ev === 'T') { // Trade event
+                    updateStockPrice(item.sym, item.p);
                 }
-            };
+            });
+        };
 
-            // When WebSocket encounters an error
-            ws.onerror = function (error) {
-                console.error("WebSocket Error:", error);
-                alert("Error with WebSocket connection.");
-            };
+        socket.onclose = () => {
+            console.log('WebSocket connection closed.');
+        };
 
-            // When WebSocket connection is closed
-            ws.onclose = function () {
-                console.log("WebSocket connection closed.");
-            };
+        socket.onerror = (error) => {
+            console.error('WebSocket error:', error);
+        };
+
+        // Subscribe to a new ticker
+        document.getElementById('subscribe').addEventListener('click', () => {
+            const ticker = document.getElementById('ticker').value.toUpperCase();
+
+            if (ticker && !tickerSubscriptions.has(ticker)) {
+                tickerSubscriptions.add(ticker);
+                socket.send(JSON.stringify({
+                    action: 'subscribe',
+                    params: `T.${ticker}`
+                }));
+
+                addTickerToUI(ticker);
+            }
+        });
+
+        function addTickerToUI(ticker) {
+            const tickerDiv = document.createElement('div');
+            tickerDiv.id = `stock-${ticker}`;
+            tickerDiv.className = 'stock-item';
+            tickerDiv.innerHTML = `<strong>${ticker}:</strong> <span id="price-${ticker}">Loading...</span>`;
+            pricesDiv.appendChild(tickerDiv);
         }
 
-        // Handle the "Connect" button click
-        document.getElementById('connectButton').onclick = function () {
-            const ticker = document.getElementById('ticker').value.toUpperCase();
-            connectWebSocket(ticker);
-        };
+        function updateStockPrice(ticker, price) {
+            const priceSpan = document.getElementById(`price-${ticker}`);
+            if (priceSpan) {
+                priceSpan.textContent = `$${price.toFixed(2)}`;
+            }
+        }
     </script>
 </body>
 </html>
