@@ -45,13 +45,12 @@
     <script>
         // Store WebSocket connection
         let ws;
+        let apiKey = "_rMexpT_eCLpzgwwarNCqIrvgDBdKuFc";  // Your Polygon.io API Key
 
         // Function to initialize WebSocket connection
         function connectWebSocket(ticker) {
-            const apiKey = '_rMexpT_eCLpzgwwarNCqIrvgDBdKuFc'; // Replace with your Polygon.io API Key
-            const url = `wss://socket.polygon.io/stocks`;
+            const url = "wss://socket.polygon.io/stocks";
 
-            // Check if ticker is valid
             if (!ticker) {
                 alert("Please enter a valid ticker symbol.");
                 return;
@@ -62,26 +61,41 @@
 
             // When the WebSocket connection is open
             ws.onopen = function () {
-                console.log(`Connected to WebSocket for ${ticker}`);
-                // Send the subscription message
-                const message = {
-                    action: 'subscribe',
+                console.log("Connected to WebSocket.");
+                // Authenticate with Polygon.io API key
+                const authMessage = {
+                    action: "auth",
+                    params: apiKey
+                };
+                ws.send(JSON.stringify(authMessage));
+
+                // Subscribe to the ticker symbol
+                const subscribeMessage = {
+                    action: "subscribe",
                     symbols: [ticker]
                 };
-                ws.send(JSON.stringify(message));
+                ws.send(JSON.stringify(subscribeMessage));
+                console.log(`Subscribed to ticker: ${ticker}`);
             };
 
             // When a message is received from the WebSocket
             ws.onmessage = function (event) {
-                const data = JSON.parse(event.data);
-                if (data ? data.sym : false) {
-                    document.getElementById('data').innerHTML = `
-                        <strong>Real-time Data for ${ticker}:</strong><br>
-                        Symbol: ${data.sym}<br>
-                        Price: $${data.price}<br>
-                        Size: ${data.size}<br>
-                        Timestamp: ${new Date(data.timestamp * 1000).toLocaleString()}
-                    `;
+                try {
+                    const data = JSON.parse(event.data);
+                    console.log("Data received:", data);
+
+                    // Check if the data contains the ticker symbol
+                    if (data.sym) {
+                        document.getElementById('data').innerHTML = `
+                            <strong>Real-time Data for ${ticker}:</strong><br>
+                            Symbol: ${data.sym}<br>
+                            Price: $${data.price}<br>
+                            Size: ${data.size}<br>
+                            Timestamp: ${new Date(data.timestamp * 1000).toLocaleString()}
+                        `;
+                    }
+                } catch (error) {
+                    console.error("Error parsing message:", error);
                 }
             };
 
@@ -93,7 +107,7 @@
 
             // When WebSocket connection is closed
             ws.onclose = function () {
-                console.log(`WebSocket connection for ${ticker} closed`);
+                console.log("WebSocket connection closed.");
             };
         }
 
