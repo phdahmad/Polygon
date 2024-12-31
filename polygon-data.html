@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Polygon and Yahoo Finance Integration</title>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+</head>
+<body>
+    <h1>Stock Data Integration</h1>
+    <div>
+        <label for="ticker">Enter Stock Ticker:</label>
+        <input type="text" id="ticker" placeholder="AAPL">
+        <button onclick="fetchStockData()">Get Stock Data</button>
+    </div>
+    <pre id="output"></pre>
+
+    <script>
+        const POLYGON_API_KEY = "_rMexpT_eCLpzgwwarNCqIrvgDBdKuFc"; // Replace with your API key
+
+        async function fetchStockData() {
+            const ticker = document.getElementById('ticker').value;
+            const output = document.getElementById('output');
+            output.textContent = 'Fetching data...';
+
+            try {
+                // Fetch data from Polygon
+                const polygonUrl = `https://api.polygon.io/v2/aggs/ticker/${ticker}/range/1/day/2023-01-01/2023-02-01?apiKey=${POLYGON_API_KEY}`;
+                const polygonResponse = await axios.get(polygonUrl);
+
+                if (polygonResponse.data.results) {
+                    output.textContent = JSON.stringify(polygonResponse.data.results, null, 2);
+                } else {
+                    output.textContent = 'No data found for the given ticker.';
+                }
+            } catch (error) {
+                console.error('An error occurred:', error);
+                output.textContent = `Error fetching data: ${error.message}`;
+            }
+        }
+    </script>
+</body>
+</html>
