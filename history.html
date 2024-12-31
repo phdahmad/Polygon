@@ -5,6 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Historical Stock Data</title>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <style>
+        th {
+            cursor: pointer;
+        }
+    </style>
 </head>
 <body>
     <h1>Download Historical Stock Data</h1>
@@ -36,12 +41,12 @@
     <table id="data-table" border="1">
         <thead>
             <tr>
-                <th>Timestamp</th>
-                <th>Open</th>
-                <th>High</th>
-                <th>Low</th>
-                <th>Close</th>
-                <th>Volume</th>
+                <th onclick="sortTable(0)">Timestamp</th>
+                <th onclick="sortTable(1)">Open</th>
+                <th onclick="sortTable(2)">High</th>
+                <th onclick="sortTable(3)">Low</th>
+                <th onclick="sortTable(4)">Close</th>
+                <th onclick="sortTable(5)">Volume</th>
             </tr>
         </thead>
         <tbody></tbody>
@@ -89,6 +94,8 @@
 
                     tableBody.innerHTML = rows;
 
+                    sortTable(0); // Default sort by Timestamp
+
                     // Download CSV
                     const csvContent = [
                         ["Timestamp", "Open", "High", "Low", "Close", "Volume"],
@@ -113,6 +120,27 @@
                 console.error('Error fetching historical data:', error);
                 alert('Failed to fetch historical data. Please check the console for more details.');
             }
+        }
+
+        function sortTable(columnIndex) {
+            const table = document.getElementById("data-table");
+            const rows = Array.from(table.rows).slice(1); // Exclude header row
+            const isAscending = table.dataset.sortOrder !== "asc";
+
+            rows.sort((a, b) => {
+                const cellA = a.cells[columnIndex].innerText;
+                const cellB = b.cells[columnIndex].innerText;
+
+                if (!isNaN(cellA) && !isNaN(cellB)) {
+                    return isAscending ? cellA - cellB : cellB - cellA;
+                }
+                return isAscending
+                    ? cellA.localeCompare(cellB)
+                    : cellB.localeCompare(cellA);
+            });
+
+            rows.forEach(row => table.tBodies[0].appendChild(row));
+            table.dataset.sortOrder = isAscending ? "asc" : "desc";
         }
     </script>
 </body>
