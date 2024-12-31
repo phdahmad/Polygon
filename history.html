@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Historical Stock Data</title>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+</head>
+<body>
+    <h1>Download Historical Stock Data</h1>
+    <div>
+        <label for="ticker">Enter Stock Ticker:</label>
+        <input type="text" id="ticker" placeholder="AAPL">
+
+        <label for="interval">Choose Interval:</label>
+        <select id="interval">
+            <option value="minute">Minute</option>
+            <option value="hour">Hour</option>
+            <option value="day">Day</option>
+            <option value="week">Week</option>
+            <option value="month">Month</option>
+        </select>
+
+        <label for="period">Choose Period:</label>
+        <select id="period">
+            <option value="1d">1 Day</option>
+            <option value="5d">5 Days</option>
+            <option value="1mo">1 Month</option>
+            <option value="3mo">3 Months</option>
+            <option value="6mo">6 Months</option>
+            <option value="1y">1 Year</option>
+        </select>
+
+        <button onclick="fetchHistoricalData()">Fetch and Download Data</button>
+    </div>
+    <table id="data-table" border="1">
+        <thead>
+            <tr>
+                <th>Timestamp</th>
+                <th>Open</th>
+                <th>High</th>
+                <th>Low</th>
+                <th>Close</th>
+                <th>Volume</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+    <script>
+        const POLYGON_API_KEY = "YOUR_POLYGON_API_KEY"; // Replace with your API key
+
+        async function fetchHistoricalData() {
+            const ticker = document.getElementById('ticker').value;
+            const interval = document.getElementById('interval').value;
+            const period = document.getElementById('period').value;
+            const tableBody = document.querySelector('#data-table tbody');
+            tableBody.innerHTML = '';
+
+            const startDate = new Date();
+            if (period === "1d") startDate.setDate(startDate.getDate() - 1);
+            else if (period === "5d") startDate.setDate(startDate.getDate() - 5);
+            else if (period === "1mo") startDate.setMonth(startDate.getMonth() - 1);
+            else if (period === "3mo") startDate.setMonth(startDate.getMonth() - 3);
+            else if (period === "6mo") startDate.setMonth(startDate.getMonth() - 6);
+            else if (period === "1y") startDate.setFullYear(startDate.getFullYear() - 1);
+
+            const startDateString = startDate.toISOString().split("T")[0];
+            const endDateString = new Date().toISOString().split("T")[0];
+
+            const url = `https://api.polygon.io/v2/aggs/ticker/${ticker}/range/1/${interval}/${startDateString}/${endDateString}?apiKey=${POLYGON_API_KEY}`;
+
+            try {
+                const response = await axios.get(url);
+                const data = response.data.results;
+
+                if (data && data.length > 0) {
+                    const rows = data.map(row => {
+                        const timestamp = new Date(row.t).toLocaleString();
+                        return `<tr>
+                            <td>${timestamp}</td>
+                            <td>${row.o}</td>
+                            <td>${row.h}</td>
+                            <td>${row.l}</td>
+                            <td>${row.c}</td>
+                            <td>${row.v}</td>
+                        </tr>`;
+                    }).join('');
+
+                    tableBody.innerHTML = rows;
+
+                    // Download CSV
+                    const csvContent = [
+                        ["Timestamp", "Open", "High", "Low", "Close", "Volume"],
+                        ...data.map(row => [
+                            new Date(row.t).toLocaleString(), row.o, row.h, row.l, row.c, row.v
+                        ])
+                    ].map(e => e.join(",")).join("\n");
+
+                    const blob = new Blob([csvContent], { type: 'text/csv' });
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.style.display = 'none';
+                    a.href = url;
+                    a.download = `${ticker}_historical_data.csv`;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                } else {
+                    alert('No data found for the selected ticker.');
+                }
+            } catch (error) {
+                console.error('Error fetching historical data:', error);
+                alert('Failed to fetch historical data. Please check the console for more details.');
+            }
+        }
+    </script>
+</body>
+</html>
