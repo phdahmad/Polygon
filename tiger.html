@@ -31,6 +31,9 @@
             <option value="1y">1 Year</option>
         </select>
 
+        <label for="companies">Modify Companies List:</label>
+        <textarea id="companies" rows="5" cols="50">AAPL,ABBV,ABNB,ADBE,AMD,AMAT,AMZN,ARM,AVGO,BA,BABA,BAC,BIDU,COIN,CAT,COST,CRWD,CVNA,FDX,FSLR,GME,GOOG,HD,HUT,IBM,KEYS,LCID,LLY,LPA,LRCX,MDB,META,MLM,MRNA,MRVL,MSFT,MSI,MSTR,MU,NFLX,NOC,NVDA,ODFL,OKTA,PANW,PGR,PLTR,RIOT,ROP,SMCI,SNOW,TEAM,TSLA,ULTA,UPST,VLO,QCOM,WDAY</textarea>
+
         <button onclick="processCompanies()">Get Stock Data</button>
     </div>
     <pre id="output"></pre>
@@ -74,13 +77,11 @@
             const output = document.getElementById('output');
             const interval = document.getElementById('interval').value;
             const period = document.getElementById('period').value;
+            const companiesInput = document.getElementById('companies').value;
+            const companies = companiesInput.split(',').map(company => company.trim());
 
-            output.textContent = 'Processing companies...';
-            const companies = ['AAPL', 'ABBV', 'ABNB', 'ADBE', 'AMD', 'AMAT', 'AMZN', 'ARM', 'AVGO', 'BA', 'BABA',
-                'BAC', 'BIDU', 'COIN', 'CAT', 'COST', 'CRWD', 'CVNA', 'FDX', 'FSLR', 'GME', 'GOOG',
-                'HD', 'HUT', 'IBM', 'KEYS', 'LCID', 'LLY', 'LPA', 'LRCX', 'MDB', 'META', 'MLM',
-                'MRNA', 'MRVL', 'MSFT', 'MSI', 'MSTR', 'MU', 'NFLX', 'NOC', 'NVDA', 'ODFL', 'OKTA',
-                'PANW', 'PGR', 'PLTR', 'RIOT', 'ROP', 'SMCI', 'SNOW', 'TEAM', 'TSLA', 'ULTA', 'UPST', 'VLO', 'QCOM', 'WDAY'];
+            await sendMessageToTelegram(`Starting process for ${companies.length} companies.`);
+            output.textContent = `Processing ${companies.length} companies...`;
 
             let filteredCompanies = [];
 
@@ -95,7 +96,7 @@
             }
 
             output.textContent = `Filtered Companies: ${filteredCompanies.join(', ')}`;
-            await sendMessageToTelegram(`Filtered Companies: ${filteredCompanies.join(', ')}`);
+            await sendMessageToTelegram(`Processed ${companies.length} companies. Filtered companies count: ${filteredCompanies.length}`);
         }
     </script>
 </body>
