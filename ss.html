@@ -91,7 +91,8 @@
             <option value="10">10</option>
         </select>
 
-        $1
+        <label for="interval">Choose Interval:</label>
+        <select id="interval">
             <option value="minute">Minute</option>
             <option value="hour">Hour</option>
             <option value="day">Day</option>
@@ -133,7 +134,7 @@
         async function fetchHistoricalData() {
             const ticker = document.getElementById('ticker').value;
             const multiplier = document.getElementById('multiplier').value;
-            $1
+            const interval = document.getElementById('interval').value;
             const period = document.getElementById('period').value;
             const tableBody = document.querySelector('#data-table tbody');
             tableBody.innerHTML = '';
