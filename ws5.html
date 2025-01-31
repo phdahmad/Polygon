@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Stock Price Viewer</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        #stock-data {
+            margin-top: 20px;
+        }
+        .stock-item {
+            margin-bottom: 10px;
+        }
+        .positive {
+            color: green;
+        }
+        .negative {
+            color: red;
+        }
+    </style>
+</head>
+<body>
+    <h1>Live Stock Price Viewer</h1>
+    <label for="ticker">Enter Stock Ticker:</label>
+    <input type="text" id="ticker" placeholder="e.g., MSFT">
+    <button id="subscribe">Subscribe</button>
+
+    <div id="stock-data">
+        <h2>Stock Prices and Volumes:</h2>
+        <div id="prices"></div>
+    </div>
+
+    <script>
+        const API_KEY = '_rMexpT_eCLpzgwwarNCqIrvgDBdKuFc'; // Replace with your API key
+        const WS_URL = 'wss://socket.polygon.io/stocks';
+        const REST_URL = 'https://api.polygon.io/v2/aggs/ticker';
+
+        let socket = new WebSocket(WS_URL);
+        let tickerSubscriptions = new Set();
+        let accumulatedVolumes = {};
+        let previousClosePrices = {}; // Store previous close prices
+
+        const pricesDiv = document.getElementById('prices');
+
+        // Handle WebSocket connection
+        socket.onopen = () => {
+            console.log('WebSocket connection established.');
+            socket.send(JSON.stringify({ action: 'auth', params: API_KEY }));
+        };
+
+        socket.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            data.forEach(item => {
+                if (item.ev === 'T') { // Trade event
+                    updateStockData(item.sym, item.p, item.s);
+                }
+            });
+        };
+
+        socket.onclose = () => {
+            console.log('WebSocket connection closed.');
+        };
+
+        socket.onerror = (error) => {
+            console.error('WebSocket error:', error);
+        };
+
+        // Subscribe to a new ticker
+        document.getElementById('subscribe').addEventListener('click', async () => {
+            const ticker = document.getElementById('ticker').value.toUpperCase();
+
+            if (ticker && !tickerSubscriptions.has(ticker)) {
+                tickerSubscriptions.add(ticker);
+                accumulatedVolumes[ticker] = 0;
+
+                socket.send(JSON.stringify({ action: 'subscribe', params: `T.${ticker}` }));
+                addTickerToUI(ticker);
+                await fetchPreviousClosePrice(ticker);
+            }
+        });
+
+        async function fetchPreviousClosePrice(ticker) {
+            try {
+                let url = `https://api.polygon.io/v2/aggs/ticker/${ticker}/prev?adjusted=true&apiKey=${API_KEY}`;
+                let response = await fetch(url);
+                let data = await response.json();
+
+                if (data.results && data.results.length > 0) {
+                    previousClosePrices[ticker] = data.results[0].c;
+                }
+            } catch (error) {
+                console.error(`Error fetching previous close price for ${ticker}:`, error);
+            }
+        }
+
+        function addTickerToUI(ticker) {
+            const tickerDiv = document.createElement('div');
+            tickerDiv.id = `stock-${ticker}`;
+            tickerDiv.className = 'stock-item';
+            tickerDiv.innerHTML = `
+                <strong>${ticker}:</strong> 
+                <span id="price-${ticker}">Loading...</span> 
+                (Diff: <span id="diff-${ticker}">--</span> <span id="percent-${ticker}"></span>) 
+                <br>
+                Volume: <span id="volume-${ticker}">Loading...</span>, 
+                Accumulated Volume: <span id="acc-volume-${ticker}">0</span>
+            `;
+            pricesDiv.appendChild(tickerDiv);
+        }
+
+        function updateStockData(ticker, price, volume) {
+            const priceSpan = document.getElementById(`price-${ticker}`);
+            const volumeSpan = document.getElementById(`volume-${ticker}`);
+            const accVolumeSpan = document.getElementById(`acc-volume-${ticker}`);
+            const diffSpan = document.getElementById(`diff-${ticker}`);
+            const percentSpan = document.getElementById(`percent-${ticker}`);
+
+            if (priceSpan) {
+                priceSpan.textContent = `$${price.toFixed(2)}`;
+            }
+
+            if (volumeSpan) {
+                volumeSpan.textContent = volume; // No comma formatting
+            }
+
+            if (accVolumeSpan) {
+                accumulatedVolumes[ticker] += volume;
+                accVolumeSpan.textContent = accumulatedVolumes[ticker]; // No comma formatting
+            }
+
+            if (previousClosePrices[ticker] !== undefined) {
+                let prevClose = previousClosePrices[ticker];
+                let diff = price - prevClose;
+                let percentChange = (diff / prevClose) * 100;
+
+                diffSpan.textContent = `$${diff.toFixed(2)}`;
+                percentSpan.textContent = `(${percentChange.toFixed(2)}%)`;
+
+                if (diff > 0) {
+                    diffSpan.className = 'positive';
+                    percentSpan.className = 'positive';
+                } else {
+                    diffSpan.className = 'negative';
+                    percentSpan.className = 'negative';
+                }
+            }
+        }
+    </script>
+</body>
+</html>
