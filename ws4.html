@@ -118,7 +118,7 @@
 
                 if (data.results && data.results.length > 0) {
                     accumulatedVolumes[ticker] = data.results[0].v;
-                    document.getElementById(`acc-volume-${ticker}`).textContent = accumulatedVolumes[ticker];
+                    document.getElementById(`acc-volume-${ticker}`).textContent = formatNumber(accumulatedVolumes[ticker]);
                 }
             } catch (error) {
                 console.error(`Error fetching accumulated volume for ${ticker}:`, error);
@@ -153,12 +153,12 @@
             }
 
             if (volumeSpan) {
-                volumeSpan.textContent = volume;
+                volumeSpan.textContent = formatNumber(volume);
             }
 
             if (accVolumeSpan) {
                 accumulatedVolumes[ticker] += volume;
-                accVolumeSpan.textContent = accumulatedVolumes[ticker];
+                accVolumeSpan.textContent = formatNumber(accumulatedVolumes[ticker]);
             }
 
             if (previousClosePrices[ticker] !== undefined) {
@@ -166,7 +166,7 @@
                 let diff = price - prevClose;
                 let percentChange = (diff / prevClose) * 100;
 
-                diffSpan.textContent = `$${diff.toFixed(2)}`;
+                diffSpan.textContent = `$${formatNumber(diff)}`;
                 percentSpan.textContent = `(${percentChange.toFixed(2)}%)`;
 
                 if (diff > 0) {
@@ -177,6 +177,10 @@
                     percentSpan.className = 'negative';
                 }
             }
+        }
+
+        function formatNumber(num) {
+            return num.toLocaleString();
         }
     </script>
 </body>
