@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+  <meta charset="UTF-8" />
+  <title>Supabase – فرص الاستراتيجيات</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body { font-family: Arial, sans-serif; direction: rtl; }
+    table { border-collapse: collapse; margin-top: 10px; width: 100%; }
+    th, td { border: 1px solid #ccc; padding: 4px 8px; text-align: center; }
+    th { background: #f0f0f0; }
+    .section-title { margin-top: 30px; font-weight: bold; font-size: 18px; }
+
+    .status-info { color: #555; }
+    .status-ok   { color: #007e33; }
+    .status-error{ color: #cc0000; }
+
+    .multiselect-container {
+      position: relative;
+      width: 260px;
+      margin-top: 8px;
+    }
+    .multiselect-display {
+      border: 1px solid #ccc;
+      padding: 6px 8px;
+      cursor: pointer;
+      background: #fff;
+      border-radius: 4px;
+      min-height: 32px;
+      font-size: 14px;
+    }
+    .multiselect-display::after {
+      content: "▼";
+      float: left;
+      font-size: 10px;
+      margin-top: 4px;
+      color: #666;
+    }
+    .multiselect-placeholder {
+      color: #888;
+    }
+    .multiselect-selected-badge {
+      display: inline-block;
+      background: #e3f2fd;
+      border-radius: 10px;
+      padding: 2px 6px;
+      margin: 2px 2px;
+      font-size: 12px;
+    }
+    .multiselect-options {
+      position: absolute;
+      top: 100%;
+      right: 0;
+      left: 0;
+      max-height: 220px;
+      overflow-y: auto;
+      border: 1px solid #ccc;
+      background: #fff;
+      z-index: 999;
+      border-radius: 4px;
+      margin-top: 2px;
+      display: none;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+      padding: 4px 0;
+    }
+    .multiselect-option {
+      padding: 2px 8px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    .multiselect-option:hover {
+      background: #f5f5f5;
+    }
+    .multiselect-option input {
+      margin-left: 4px;
+    }
+    .multiselect-select-all {
+      border-bottom: 1px solid #eee;
+      margin-bottom: 4px;
+      padding-bottom: 4px;
+    }
+
+    .analyze-btn {
+      margin-top: 10px;
+      padding: 6px 10px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    .sub-table-title {
+      margin-top: 20px;
+      font-weight: bold;
+    }
+
+    .signal-header {
+      margin-top: 4px;
+      margin-bottom: 4px;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>اختبار الاتصال بقاعدة بيانات Supabase</h1>
+  <p>الجدول: <strong>strategy_results</strong></p>
+
+  <!-- حالة الاتصال والتحميل -->
+  <p id="status-conn" class="status-info"></p>
+  <p id="status-load" class="status-info"></p>
+
+  <!-- اختيار استراتيجيات -->
+  <div class="section-title">فلترة حسب الاستراتيجية (Dropdown Multi-Select)</div>
+  <p>اختر استراتيجيات واحدة أو أكثر (أو حدد الكل لعرض جميع الفرص):</p>
+
+  <div class="multiselect-container" id="strategy-multiselect">
+    <div class="multiselect-display" id="strategy-display">
+      <span class="multiselect-placeholder">اختر استراتيجية واحدة أو أكثر</span>
+    </div>
+    <div class="multiselect-options" id="strategy-options"></div>
+  </div>
+
+  <!-- جدول الفرص -->
+  <div class="section-title">الفرص للاستراتيجيات المختارة</div>
+  <div id="strategy-table-container">اختر استراتيجية واحدة على الأقل لعرض الفرص.</div>
+
+  <!-- زر تحليل الشركات المختارة -->
+  <button id="analyze-btn" class="analyze-btn">تحليل الشركات المختارة (30 يوم)</button>
+
+  <!-- نتائج تحليل الأسهم -->
+  <div class="section-title">تحليل 30 يوم للشركات المختارة</div>
+  <div id="analysis-container"></div>
+
+  <!-- Supabase JS -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Chart.js للـ Line Chart -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <script>
+    const SUPABASE_URL = "https://ipbrbzspogkrkcospivs.supabase.co";
+    const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlwYnJienNwb2drcmtjb3NwaXZzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYzMjI3MTYsImV4cCI6MjA3MTg5ODcxNn0.N7bO1AZUM2s5_AW0SmjyhzEX3uB64YMKfB3eAipq2lA"; // anon key
+
+    const { createClient } = supabase;
+    const client = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    const statusConn = document.getElementById("status-conn");
+    const statusLoad = document.getElementById("status-load");
+    const strategyTableContainer = document.getElementById("strategy-table-container");
+    const analysisContainer = document.getElementById("analysis-container");
+
+    const multiContainer = document.getElementById("strategy-multiselect");
+    const multiDisplay  = document.getElementById("strategy-display");
+    const multiOptions  = document.getElementById("strategy-options");
+    const analyzeBtn = document.getElementById("analyze-btn");
+
+    let allData = [];
+    let strategies = [];
+
+    function setStatus(el, text, type) {
+      el.textContent = text;
+      el.className = "";
+      if (type === "info")  el.classList.add("status-info");
+      if (type === "ok")    el.classList.add("status-ok");
+      if (type === "error") el.classList.add("status-error");
+    }
+
+    /* ===================== جدول الفرص ===================== */
+    function renderStrategyTable(filteredData) {
+      strategyTableContainer.innerHTML = "";
+
+      if (!filteredData || filteredData.length === 0) {
+        strategyTableContainer.textContent = "لا توجد فرص مطابقة للاختيارات.";
+        return;
+      }
+
+      const table = document.createElement("table");
+      const thead = document.createElement("thead");
+      const headerRow = document.createElement("tr");
+
+      const headers = ["تحديد", "تاريخ الظهور", "الاستراتيجية", "رمز السهم"];
+      headers.forEach(h => {
+        const th = document.createElement("th");
+        th.textContent = h;
+        headerRow.appendChild(th);
+      });
+      thead.appendChild(headerRow);
+      table.appendChild(thead);
+
+      const tbody = document.createElement("tbody");
+      filteredData.forEach(row => {
+        const tr = document.createElement("tr");
+
+        const tdSel = document.createElement("td");
+        const cb = document.createElement("input");
+        cb.type = "checkbox";
+        cb.className = "signal-select";
+        cb.dataset.symbol = row.symbol;
+        cb.dataset.date = row.date;
+        cb.dataset.strategy = row.strategy;
+        tdSel.appendChild(cb);
+        tr.appendChild(tdSel);
+
+        const tdDate = document.createElement("td");
+        tdDate.textContent = row.date;
+        tr.appendChild(tdDate);
+
+        const tdStr = document.createElement("td");
+        tdStr.textContent = row.strategy;
+        tr.appendChild(tdStr);
+
+        const tdSym = document.createElement("td");
+        tdSym.textContent = row.symbol;
+        tr.appendChild(tdSym);
+
+        tbody.appendChild(tr);
+      });
+
+      table.appendChild(tbody);
+      strategyTableContainer.appendChild(table);
+    }
+
+    /* ===================== Multi-select ===================== */
+    function renderStrategyMultiSelect(strategiesList) {
+      multiOptions.innerHTML = "";
+
+      const selectAllDiv = document.createElement("div");
+      selectAllDiv.className = "multiselect-option multiselect-select-all";
+
+      const selectAllCb = document.createElement("input");
+      selectAllCb.type = "checkbox";
+      selectAllCb.id = "strategy-select-all";
+
+      const selectAllLabel = document.createElement("label");
+      selectAllLabel.htmlFor = "strategy-select-all";
+      selectAllLabel.textContent = "تحديد / إلغاء تحديد الكل";
+
+      selectAllDiv.appendChild(selectAllCb);
+      selectAllDiv.appendChild(selectAllLabel);
+      multiOptions.appendChild(selectAllDiv);
+
+      selectAllCb.addEventListener("change", () => {
+        const checked = selectAllCb.checked;
+        const cbs = multiOptions.querySelectorAll("input.strategy-cb");
+        cbs.forEach(cb => cb.checked = checked);
+        applyStrategyFilter();
+        updateDisplayText();
+      });
+
+      strategiesList.forEach(s => {
+        const div = document.createElement("div");
+        div.className = "multiselect-option";
+
+        const cb = document.createElement("input");
+        cb.type = "checkbox";
+        cb.value = s;
+        cb.id = "strategy-" + s;
+        cb.className = "strategy-cb";
+
+        const label = document.createElement("label");
+        label.htmlFor = cb.id;
+        label.textContent = s;
+
+        cb.addEventListener("change", () => {
+          applyStrategyFilter();
+          updateDisplayText();
+          const cbs = multiOptions.querySelectorAll("input.strategy-cb");
+          const allChecked = Array.from(cbs).every(x => x.checked);
+          selectAllCb.checked = allChecked;
+        });
+
+        div.appendChild(cb);
+        div.appendChild(label);
+        multiOptions.appendChild(div);
+      });
+
+      updateDisplayText();
+    }
+
+    function getSelectedStrategies() {
+      const cbs = multiOptions.querySelectorAll("input.strategy-cb:checked");
+      return Array.from(cbs).map(cb => cb.value);
+    }
+
+    function updateDisplayText() {
+      const selected = getSelectedStrategies();
+      multiDisplay.innerHTML = "";
+
+      if (selected.length === 0) {
+        const span = document.createElement("span");
+        span.className = "multiselect-placeholder";
+        span.textContent = "اختر استراتيجية واحدة أو أكثر";
+        multiDisplay.appendChild(span);
+      } else if (selected.length <= 3) {
+        selected.forEach(s => {
+          const badge = document.createElement("span");
+          badge.className = "multiselect-selected-badge";
+          badge.textContent = s;
+          multiDisplay.appendChild(badge);
+        });
+      } else {
+        const badge = document.createElement("span");
+        badge.className = "multiselect-selected-badge";
+        badge.textContent = selected.length + " استراتيجيات مختارة";
+        multiDisplay.appendChild(badge);
+      }
+    }
+
+    function sortByStrategyThenDate(data) {
+      return data.sort((a, b) => {
+        if (a.strategy < b.strategy) return -1;
+        if (a.strategy > b.strategy) return 1;
+        if (a.date < b.date) return -1;
+        if (a.date > b.date) return 1;
+        return 0;
+      });
+    }
+
+    function applyStrategyFilter() {
+      const selected = getSelectedStrategies();
+      if (selected.length === 0) {
+        strategyTableContainer.textContent = "اختر استراتيجية واحدة على الأقل لعرض الفرص.";
+        return;
+      }
+      let filtered = allData.filter(row => selected.includes(row.strategy));
+      filtered = sortByStrategyThenDate(filtered);
+      renderStrategyTable(filtered);
+    }
+
+    multiDisplay.addEventListener("click", () => {
+      const isOpen = multiOptions.style.display === "block";
+      multiOptions.style.display = isOpen ? "none" : "block";
+    });
+
+    document.addEventListener("click", (e) => {
+      if (!multiContainer.contains(e.target)) {
+        multiOptions.style.display = "none";
+      }
+    });
+
+    /* ===================== تحميل strategy_results ===================== */
+    async function loadStrategyResults() {
+      setStatus(statusLoad, "جاري تحميل بيانات الاستراتيجيات...", "info");
+      strategyTableContainer.textContent = "اختر استراتيجية واحدة على الأقل لعرض الفرص.";
+      multiOptions.innerHTML = "";
+      allData = [];
+      strategies = [];
+
+      try {
+        const { data, error } = await client
+          .from("strategy_results")
+          .select("id, date, symbol, strategy")
+          .order("date", { ascending: true })
+          .limit(5000);
+
+        if (error) {
+          console.error("Supabase error:", error);
+          setStatus(statusLoad, "❌ خطأ في تحميل البيانات: " + error.message, "error");
+          return;
+        }
+
+        if (!data || data.length === 0) {
+          setStatus(statusLoad, "تم التحميل ✅ لكن لا توجد بيانات في الجدول.", "ok");
+          return;
+        }
+
+        allData = data;
+        setStatus(statusLoad, `تم تحميل ${data.length} فرصة من الجدول ✅`, "ok");
+
+        strategies = Array.from(new Set(allData
+          .map(row => row.strategy)
+          .filter(v => v !== null && v !== "")));
+
+        renderStrategyMultiSelect(strategies);
+
+      } catch (e) {
+        console.error("Unexpected error:", e);
+        setStatus(statusLoad, "❌ استثناء غير متوقع أثناء تحميل البيانات: " + e.message, "error");
+      }
+    }
+
+    async function initPage() {
+      setStatus(statusConn, "جاري الاتصال بقاعدة البيانات...", "info");
+      try {
+        const { error } = await client
+          .from("strategy_results")
+          .select("id")
+          .limit(1);
+
+        if (error) {
+          console.error("Connection test error:", error);
+          setStatus(statusConn, "❌ خطأ في الاتصال بقاعدة البيانات: " + error.message, "error");
+          return;
+        }
+
+        setStatus(statusConn, "تم الاتصال بقاعدة البيانات بنجاح ✅", "ok");
+        await loadStrategyResults();
+
+      } catch (e) {
+        console.error("Unexpected connection error:", e);
+        setStatus(statusConn, "❌ استثناء غير متوقع أثناء الاتصال: " + e.message, "error");
+      }
+    }
+
+    document.addEventListener("DOMContentLoaded", initPage);
+
+    /* ===================== تحليل polygon_market (30 يوم) ===================== */
+
+    function addDays(dateStr, days) {
+      const d = new Date(dateStr + "T00:00:00");
+      d.setDate(d.getDate() + days);
+      return d.toISOString().slice(0, 10);
+    }
+
+    // نبني صفوف فيها كل القيم، مع احتمال وجود أيام قبل تاريخ الظهور
+    function buildAnalysisRows(rows) {
+      if (!rows || rows.length === 0) return [];
+
+      rows.forEach(r => {
+        r.avg_price = (r.open + r.high + r.low + r.close) / 4.0;
+      });
+
+      const result = [];
+
+      for (let i = 0; i < rows.length; i++) {
+        const today = rows[i];
+        const prev1 = i - 1 >= 0 ? rows[i - 1] : null;
+        const prev2 = i - 2 >= 0 ? rows[i - 2] : null;
+        const prev3 = i - 3 >= 0 ? rows[i - 3] : null;
+
+        const changePct = prev1 && prev1.close > 0
+          ? ((today.close - prev1.close) / prev1.close) * 100
+          : null;
+
+        const vol1 = prev1 ? prev1.volume : null;
+        const vol2 = prev2 ? prev2.volume : null;
+        const vol3 = prev3 ? prev3.volume : null;
+
+        const v1 = vol1 !== null ? (today.volume > vol1) : null;
+        const v2 = (vol1 !== null && vol2 !== null)
+          ? (today.volume > Math.max(vol1, vol2))
+          : null;
+        const v3 = (vol1 !== null && vol2 !== null && vol3 !== null)
+          ? (today.volume > Math.max(vol1, vol2, vol3))
+          : null;
+
+        const av   = today.avg_price > today.close;
+        const av1  = prev1 ? (today.avg_price > prev1.avg_price) : null;
+        const av2  = (prev1 && prev2)
+          ? (today.avg_price > Math.max(prev1.avg_price, prev2.avg_price))
+          : null;
+        const av3  = (prev1 && prev2 && prev3)
+          ? (today.avg_price > Math.max(prev1.avg_price, prev2.avg_price, prev3.avg_price))
+          : null;
+
+        result.push({
+          date: today.from_date,
+          close: today.close,
+          changePct,
+          v1, v2, v3,
+          av, av1, av2, av3
+        });
+      }
+
+      return result;
+    }
+
+    function boolToMark(v) {
+      if (v === null || v === undefined) return "-";
+      return v ? "✓" : "x";
+    }
+
+    function renderAnalysisTable(container, symbol, strategyName, baseDate, signalClose, rows) {
+      const title = document.createElement("div");
+      title.className = "sub-table-title";
+      title.textContent = `الرمز: ${symbol} — الاستراتيجية: ${strategyName} — من تاريخ الظهور: ${baseDate}`;
+      container.appendChild(title);
+
+      const info = document.createElement("div");
+      info.className = "signal-header";
+      info.textContent = `سعر الإغلاق في يوم الظهور (${baseDate}): ${signalClose !== null ? signalClose.toFixed(2) : "-"}`;
+      container.appendChild(info);
+
+      if (!rows || rows.length === 0) {
+        const p = document.createElement("p");
+        p.textContent = "لا توجد بيانات بعد تاريخ الظهور ضمن 30 يوم.";
+        container.appendChild(p);
+        return;
+      }
+
+      const table = document.createElement("table");
+      const thead = document.createElement("thead");
+      const headerRow = document.createElement("tr");
+
+      const headers = [
+        "#D", "التاريخ", "سعر الإغلاق",
+        "%change",
+        "V-1", "V-2", "V-3",
+        "AV", "AV-1", "AV-2", "AV-3"
+      ];
+      headers.forEach(h => {
+        const th = document.createElement("th");
+        th.textContent = h;
+        headerRow.appendChild(th);
+      });
+      thead.appendChild(headerRow);
+      table.appendChild(thead);
+
+      const tbody = document.createElement("tbody");
+      rows.forEach((r, idx) => {
+        const tr = document.createElement("tr");
+
+        const tdIdx = document.createElement("td");
+        tdIdx.textContent = "D" + (idx + 1);
+        tr.appendChild(tdIdx);
+
+        const tdDate = document.createElement("td");
+        tdDate.textContent = r.date;
+        tr.appendChild(tdDate);
+
+        const tdClose = document.createElement("td");
+        tdClose.textContent = r.close != null ? r.close.toFixed(2) : "-";
+        tr.appendChild(tdClose);
+
+        const tdCh = document.createElement("td");
+        tdCh.textContent = r.changePct !== null ? r.changePct.toFixed(2) : "-";
+        tr.appendChild(tdCh);
+
+        const tdV1 = document.createElement("td"); tdV1.textContent = boolToMark(r.v1);  tr.appendChild(tdV1);
+        const tdV2 = document.createElement("td"); tdV2.textContent = boolToMark(r.v2);  tr.appendChild(tdV2);
+        const tdV3 = document.createElement("td"); tdV3.textContent = boolToMark(r.v3);  tr.appendChild(tdV3);
+
+        const tdAV  = document.createElement("td"); tdAV.textContent  = boolToMark(r.av);  tr.appendChild(tdAV);
+        const tdAV1 = document.createElement("td"); tdAV1.textContent = boolToMark(r.av1); tr.appendChild(tdAV1);
+        const tdAV2 = document.createElement("td"); tdAV2.textContent = boolToMark(r.av2); tr.appendChild(tdAV2);
+        const tdAV3 = document.createElement("td"); tdAV3.textContent = boolToMark(r.av3); tr.appendChild(tdAV3);
+
+        tbody.appendChild(tr);
+      });
+
+      table.appendChild(tbody);
+      container.appendChild(table);
+
+      /* ===== Line Chart لأسعار الإغلاق ===== */
+      const canvas = document.createElement("canvas");
+      canvas.height = 160;
+      container.appendChild(canvas);
+
+      const labels = rows.map(r => r.date);
+      const closes = rows.map(r => r.close);
+
+      const ctx = canvas.getContext("2d");
+      new Chart(ctx, {
+        type: "line",
+        data: {
+          labels,
+          datasets: [{
+            label: "سعر الإغلاق",
+            data: closes,
+            tension: 0.2
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { display: false }
+          },
+          scales: {
+            x: { display: true, title: { display: false } },
+            y: { display: true, title: { display: false } }
+          }
+        }
+      });
+    }
+
+    async function analyzeSelectedSignals() {
+      analysisContainer.innerHTML = "";
+
+      const selected = document.querySelectorAll(".signal-select:checked");
+      if (selected.length === 0) {
+        const p = document.createElement("p");
+        p.textContent = "الرجاء اختيار صف واحد على الأقل من جدول الفرص.";
+        analysisContainer.appendChild(p);
+        return;
+      }
+
+      for (const cb of selected) {
+        const symbol = cb.dataset.symbol;
+        const baseDate = cb.dataset.date;
+        const strategyName = cb.dataset.strategy;
+        const fromStart = addDays(baseDate, -3);    // 3 أيام قبل الإشارة للحساب فقط
+        const maxDate  = addDays(baseDate, 30);     // حتى 30 يوم بعد الإشارة
+
+        const { data, error } = await client
+          .from("polygon_market")
+          .select("from_date, open, high, low, close, volume")
+          .eq("symbol", symbol)
+          .gte("from_date", fromStart)
+          .lte("from_date", maxDate)
+          .order("from_date", { ascending: true })
+          .limit(40); // زيادة بسيطة احتياطاً
+
+        if (error) {
+          console.error("polygon_market error:", error);
+          const errDiv = document.createElement("div");
+          errDiv.className = "sub-table-title";
+          errDiv.textContent = `خطأ في جلب بيانات ${symbol}: ${error.message}`;
+          analysisContainer.appendChild(errDiv);
+          continue;
+        }
+
+        const rowsAll = buildAnalysisRows(data || []);
+
+        // نستخدم فقط الأيام من تاريخ الظهور وما بعده (D1..D30)
+        const rowsSignalOnward = rowsAll
+          .filter(r => r.date >= baseDate)
+          .slice(0, 30);
+
+        // سعر الإغلاق يوم الإشارة (قد يكون موجود ضمن البيانات أو لا)
+        let signalClose = null;
+        if (data && data.length > 0) {
+          const signalRow = data.find(r => r.from_date === baseDate);
+          if (signalRow && signalRow.close != null) {
+            signalClose = signalRow.close;
+          }
+        }
+
+        renderAnalysisTable(analysisContainer, symbol, strategyName, baseDate, signalClose, rowsSignalOnward);
+      }
+    }
+
+    analyzeBtn.addEventListener("click", analyzeSelectedSignals);
+  </script>
+</body>
+</html>
