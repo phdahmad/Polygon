@@ -107,6 +107,13 @@
   <p id="status-conn" class="status-info"></p>
   <p id="status-load" class="status-info"></p>
 
+
+  <!-- آخر الفرص حسب آخر تاريخ -->
+  <div class="section-title">آخر الفرص (حسب آخر تاريخ)</div>
+  <p id="status-latest" class="status-info"></p>
+  <div id="latest-table-container">سيتم عرض آخر الفرص بعد التحميل.</div>
+
+
   <!-- اختيار استراتيجيات -->
   <div class="section-title">فلترة حسب الاستراتيجية (Dropdown Multi-Select)</div>
   <p>اختر استراتيجيات واحدة أو أكثر (أو حدد الكل لعرض جميع الفرص):</p>
@@ -149,10 +156,11 @@
 
     const statusConn = document.getElementById("status-conn");
     const statusLoad = document.getElementById("status-load");
-    const strategyTableContainer = document.getElementById("strategy-table-container");
+    const statusLatest = document.getElementById("status-latest");
+        const strategyTableContainer = document.getElementById("strategy-table-container");
     const agreementTableContainer = document.getElementById("agreement-table-container");
     const analysisContainer = document.getElementById("analysis-container");
-
+    const latestTableContainer = document.getElementById("latest-table-container");
     const multiContainer = document.getElementById("strategy-multiselect");
     const multiDisplay  = document.getElementById("strategy-display");
     const multiOptions  = document.getElementById("strategy-options");
@@ -468,6 +476,105 @@
       }
     });
 
+
+    /* ===================== آخر الفرص حسب آخر تاريخ ===================== */
+
+    // يحول أي قيمة تاريخ (YYYY-MM-DD أو Timestamp) إلى مفتاح يوم YYYY-MM-DD
+    function normalizeDateKey(d) {
+      if (!d) return "";
+      if (typeof d === "string") return d.slice(0, 10);
+      try {
+        return new Date(d).toISOString().slice(0, 10);
+      } catch (e) {
+        return "";
+      }
+    }
+
+    function getLatestDateKey(data) {
+      let maxKey = "";
+      (data || []).forEach(r => {
+        const k = normalizeDateKey(r.date);
+        if (k && (maxKey === "" || k > maxKey)) maxKey = k;
+      });
+      return maxKey;
+    }
+
+    function renderLatestTable(rows, dateKey) {
+      latestTableContainer.innerHTML = "";
+
+      if (!rows || rows.length === 0) {
+        latestTableContainer.textContent = "لا توجد فرص في آخر تاريخ.";
+        return;
+      }
+
+      // ترتيب لطيف للعرض: strategy ثم symbol
+      const sorted = [...rows].sort((a, b) => {
+        if ((a.strategy || "") < (b.strategy || "")) return -1;
+        if ((a.strategy || "") > (b.strategy || "")) return 1;
+        if ((a.symbol || "") < (b.symbol || "")) return -1;
+        if ((a.symbol || "") > (b.symbol || "")) return 1;
+        return 0;
+      });
+
+      const table = document.createElement("table");
+      const thead = document.createElement("thead");
+      const headerRow = document.createElement("tr");
+
+      const headers = ["تاريخ اليوم (آخر تاريخ)", "الاستراتيجية", "رمز السهم"];
+      headers.forEach(h => {
+        const th = document.createElement("th");
+        th.textContent = h;
+        headerRow.appendChild(th);
+      });
+
+      thead.appendChild(headerRow);
+      table.appendChild(thead);
+
+      const tbody = document.createElement("tbody");
+      sorted.forEach(r => {
+        const tr = document.createElement("tr");
+
+        const tdDate = document.createElement("td");
+        tdDate.textContent = dateKey;
+        tr.appendChild(tdDate);
+
+        const tdStr = document.createElement("td");
+        tdStr.textContent = r.strategy || "-";
+        tr.appendChild(tdStr);
+
+        const tdSym = document.createElement("td");
+        tdSym.textContent = r.symbol || "-";
+        tr.appendChild(tdSym);
+
+        tbody.appendChild(tr);
+      });
+
+      table.appendChild(tbody);
+      latestTableContainer.appendChild(table);
+    }
+
+    function showLatestOpportunities() {
+      // يعتمد على allData التي تم تحميلها بالفعل
+      const latestKey = getLatestDateKey(allData);
+
+      if (!latestKey) {
+        setStatus(statusLatest, "لا يمكن تحديد آخر تاريخ من العمود date.", "error");
+        latestTableContainer.textContent = "لا يمكن عرض آخر الفرص.";
+        return;
+      }
+
+      const latestRows = allData.filter(r => normalizeDateKey(r.date) === latestKey);
+
+      setStatus(
+        statusLatest,
+        `آخر تاريخ في الجدول: ${latestKey} — عدد الفرص: ${latestRows.length} ✅`,
+        "ok"
+      );
+
+      renderLatestTable(latestRows, latestKey);
+    }
+
+
     /* ===================== تحميل strategy_results ===================== */
     async function loadStrategyResults() {
       setStatus(statusLoad, "جاري تحميل بيانات الاستراتيجيات...", "info");
@@ -502,6 +609,9 @@
           .filter(v => v !== null && v !== "")));
 
         renderStrategyMultiSelect(strategies);
+
+        // عرض آخر الفرص (حسب آخر تاريخ)
+        showLatestOpportunities();
 
       } catch (e) {
         console.error("Unexpected error:", e);
