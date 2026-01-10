@@ -1,0 +1,394 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Stoch Compare (1H / 4H / 1D) - TV-like Table</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Tahoma, Arial; margin: 16px; }
+    .row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+    input, select, button { padding:8px 10px; font-size:14px; }
+    .panel { margin-top: 12px; border:1px solid #ddd; border-radius: 12px; padding: 12px; }
+    .muted { color:#555; font-size: 13px; line-height: 1.6; }
+    .ok { color:#0a7; font-weight:700; }
+    .bad { color:#b00; font-weight:700; }
+    .tableWrap { margin-top:12px; max-height: 720px; overflow:auto; border:1px solid #eee; border-radius: 12px; }
+    table { width:100%; border-collapse: collapse; font-size: 13px; }
+    th, td { border:1px solid #eee; padding:10px; text-align:right; white-space: nowrap; }
+    thead th { background:#fafafa; position: sticky; z-index: 3; }
+    thead tr:first-child th { top: 0; }
+    thead tr:nth-child(2) th { top: 40px; z-index: 2; }
+    td.dateCell { font-weight: 700; font-size: 14px; }
+    td.num { font-variant-numeric: tabular-nums; direction:ltr; text-align:right; }
+    .groupHdr { text-align:center; font-weight:800; }
+    code { direction:ltr; }
+    .pill { display:inline-block; padding:2px 8px; border:1px solid #ddd; border-radius:999px; font-size:12px; }
+  </style>
+</head>
+<body>
+
+  <div class="row">
+    <label>رمز السهم</label>
+    <input id="sym" value="FSLR" style="width:140px" />
+
+    <label>Rows</label>
+    <input id="rows" type="number" value="40" min="10" max="300" style="width:90px" />
+
+    <label class="row" style="gap:6px;">
+      <input id="waitClose" type="checkbox" checked />
+      <span>Wait for timeframe closes</span>
+    </label>
+
+    <button id="load">تحميل / تحديث</button>
+
+    <label>Proxy (اختياري)</label>
+    <input id="proxy" placeholder="مثال: https://your-proxy.com/?url=" style="width:320px" />
+  </div>
+
+  <div class="panel">
+    <div class="muted">
+      الهدف: مقارنة <b>%K</b> و <b>%D</b> لنفس السهم على <b>1H / 4H / 1D</b> جنب بعض.<br/>
+      Stoch ثابت: <code>14 / 1 / 3</code> — Session: <code>Regular</code> (09:30–16:00 NY) — عرض التاريخ: <code>Asia/Riyadh</code>.
+      <span class="pill">Polygon</span>
+      <span class="pill">TV-like</span>
+    </div>
+    <div id="status" class="muted" style="margin-top:10px;"></div>
+
+    <div class="tableWrap">
+      <table id="cmpTable">
+        <thead>
+          <tr>
+            <th rowspan="2">#</th>
+
+            <th class="groupHdr" colspan="3">1H</th>
+            <th class="groupHdr" colspan="3">4H</th>
+            <th class="groupHdr" colspan="3">1D</th>
+          </tr>
+          <tr>
+            <th>Date · 1h</th><th>%K</th><th>%D</th>
+            <th>Date · 4h</th><th>%K</th><th>%D</th>
+            <th>Date · 1D</th><th>%K</th><th>%D</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+<script>
+  // ⚠️ ملاحظة أمنية: لا تضع API Key حساس في صفحة عامة.
+  const POLYGON_API_KEY = "Qp7ERl9merCAzbxEdmOqhCHacWbLyC7F";
+
+  // Stoch settings (TradingView screenshot)
+  const K_LEN = 14, K_SMOOTH = 1, D_SMOOTH = 3;
+
+  // Regular session
+  const SESSION_TZ = "America/New_York";
+  const SESSION_START_MIN = 9 * 60 + 30; // 09:30
+  const SESSION_END_MIN   = 16 * 60;     // 16:00
+
+  // Display like your TV screenshots (Saudi time)
+  const DISPLAY_TZ = "Asia/Riyadh";
+
+  function setStatus(msg, ok=true) {
+    const el = document.getElementById("status");
+    el.innerHTML = ok ? msg : `<span class="bad">${msg}</span>`;
+  }
+  function fmt2(x) { return (typeof x === "number" && Number.isFinite(x)) ? x.toFixed(2) : ""; }
+
+  // ---- TZ helpers (DST-safe) ----
+  function partsInTZ(date, tz) {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: tz, hour12: false,
+      year:"numeric", month:"2-digit", day:"2-digit",
+      hour:"2-digit", minute:"2-digit", second:"2-digit"
+    }).formatToParts(date);
+    const out = {};
+    for (const p of parts) out[p.type] = p.value;
+    return { year:+out.year, month:+out.month, day:+out.day, hour:+out.hour, minute:+out.minute, second:+out.second };
+  }
+  function tzOffsetMinutes(tz, date) {
+    const p = partsInTZ(date, tz);
+    const asUTC = Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second);
+    return (asUTC - date.getTime()) / 60000;
+  }
+  function utcMsForLocal(tz, y, m, d, hh, mm, ss=0) {
+    const base = Date.UTC(y, m - 1, d, hh, mm, ss);
+    let guess = base;
+    for (let i = 0; i < 3; i++) {
+      const off = tzOffsetMinutes(tz, new Date(guess));
+      const next = base - off * 60000;
+      if (Math.abs(next - guess) < 1) { guess = next; break; }
+      guess = next;
+    }
+    return guess;
+  }
+  function localPartsFromUtcMs(ms, tz) {
+    const p = partsInTZ(new Date(ms), tz);
+    return { y:p.year, m:p.month, d:p.day, hh:p.hour, mm:p.minute };
+  }
+
+  // TradingView-like date formatting
+  function formatTVDate(utcSec, tf) {
+    const date = new Date(utcSec * 1000);
+    const wd  = date.toLocaleDateString("en-US", { weekday:"short", timeZone: DISPLAY_TZ });
+    const day = date.toLocaleDateString("en-US", { day:"2-digit", timeZone: DISPLAY_TZ });
+    const mon = date.toLocaleDateString("en-US", { month:"short", timeZone: DISPLAY_TZ });
+    const yr  = date.toLocaleDateString("en-US", { year:"2-digit", timeZone: DISPLAY_TZ });
+
+    if (tf === "1D") return `${wd} ${day} ${mon} '${yr}`;
+
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: DISPLAY_TZ, hour12:false, hour:"2-digit", minute:"2-digit"
+    }).formatToParts(date).reduce((a,p)=> (a[p.type]=p.value, a), {});
+    return `${wd} ${day} ${mon} '${yr} ${parts.hour}:${parts.minute}`;
+  }
+
+  // ---- Polygon fetch ----
+  function polygonUrl(symbol, multiplier, timespan, from, to) {
+    const base = `https://api.polygon.io/v2/aggs/ticker/${encodeURIComponent(symbol)}/range/${multiplier}/${timespan}/${from}/${to}`;
+    const params = new URLSearchParams({
+      adjusted: "true",
+      sort: "asc",
+      limit: "50000",
+      apiKey: POLYGON_API_KEY
+    });
+    return `${base}?${params.toString()}`;
+  }
+
+  function pickDaysBack(tf) {
+    // enough to compute stoch windows
+    if (tf === "1H") return 14;
+    if (tf === "4H") return 60;
+    return 730;
+  }
+
+  async function fetchPolygon(symbol, tf) {
+    const now = new Date();
+    const to = now.toISOString().slice(0,10);
+    const fromDate = new Date(now.getTime() - pickDaysBack(tf) * 24 * 60 * 60000);
+    const from = fromDate.toISOString().slice(0,10);
+
+    const proxy = document.getElementById("proxy").value.trim();
+    const wrap = (url) => proxy ? (proxy + encodeURIComponent(url)) : url;
+
+    if (tf === "1D") {
+      const url = wrap(polygonUrl(symbol, 1, "day", from, to));
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`Polygon ${res.status}: ${await res.text()}`);
+      const data = await res.json();
+      return (data.results || []).map(r => ({ t:r.t, o:r.o, h:r.h, l:r.l, c:r.c }));
+    }
+
+    // intraday: fetch 1m then aggregate
+    const url = wrap(polygonUrl(symbol, 1, "minute", from, to));
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Polygon ${res.status}: ${await res.text()}`);
+    const data = await res.json();
+    return (data.results || []).map(r => ({ t:r.t, o:r.o, h:r.h, l:r.l, c:r.c }));
+  }
+
+  // ---- Aggregate 1H / 4H from 1m (Regular, anchored at 09:30 NY) ----
+  function aggregateRegularFrom1m(bars1m, tf) {
+    const bucketMin = (tf === "1H") ? 60 : 240;
+    const map = new Map();
+
+    for (const b of bars1m) {
+      const utcMs = b.t;
+      const ny = localPartsFromUtcMs(utcMs, SESSION_TZ);
+      const localMin = ny.hh * 60 + ny.mm;
+
+      if (localMin < SESSION_START_MIN || localMin >= SESSION_END_MIN) continue;
+
+      const anchorUtc = utcMsForLocal(SESSION_TZ, ny.y, ny.m, ny.d, 9, 30, 0);
+      const deltaMin = (utcMs - anchorUtc) / 60000;
+      if (deltaMin < 0) continue;
+
+      const idx = Math.floor(deltaMin / bucketMin);
+      const bucketStartUtc = anchorUtc + idx * bucketMin * 60000;
+
+      const endUtc = utcMsForLocal(SESSION_TZ, ny.y, ny.m, ny.d, 16, 0, 0);
+      if (bucketStartUtc >= endUtc) continue;
+
+      const key = bucketStartUtc;
+      const cur = map.get(key);
+
+      if (!cur) {
+        map.set(key, {
+          time: Math.floor(bucketStartUtc / 1000),
+          open: b.o,
+          high: b.h,
+          low: b.l,
+          close: b.c
+        });
+      } else {
+        cur.high = Math.max(cur.high, b.h);
+        cur.low  = Math.min(cur.low,  b.l);
+        cur.close = b.c;
+      }
+    }
+
+    return Array.from(map.values()).sort((a,b)=> a.time - b.time);
+  }
+
+  // ---- Wait for timeframe closes (exclude in-progress bar) ----
+  function filterClosedBars(ohlc, tf) {
+    const waitClose = document.getElementById("waitClose").checked;
+    if (!waitClose) return ohlc;
+
+    if (tf === "1D") {
+      // For daily: if today is still in progress (market day), exclude the last bar.
+      // We approximate by excluding the last daily bar if it corresponds to "today" in NY.
+      if (ohlc.length < 2) return ohlc;
+      const last = ohlc[ohlc.length - 1];
+      const lastNy = partsInTZ(new Date(last.time * 1000), SESSION_TZ);
+      const nowNy  = partsInTZ(new Date(), SESSION_TZ);
+      const sameDay = (lastNy.year === nowNy.year && lastNy.month === nowNy.month && lastNy.day === nowNy.day);
+      // if same day and market time not past 16:00 NY yet => exclude
+      const nowMin = nowNy.hour * 60 + nowNy.minute;
+      if (sameDay && nowMin < SESSION_END_MIN) return ohlc.slice(0, -1);
+      return ohlc;
+    }
+
+    // For 1H/4H: exclude last bar if its end time is in the future
+    if (ohlc.length < 2) return ohlc;
+    const last = ohlc[ohlc.length - 1];
+    const durSec = (tf === "1H") ? 3600 : 4 * 3600;
+    const endMs = (last.time + durSec) * 1000;
+    if (Date.now() < endMs) return ohlc.slice(0, -1);
+    return ohlc;
+  }
+
+  // ---- Stoch 14/1/3 (Regular) ----
+  function smaStrict(arr, period) {
+    const out = new Array(arr.length).fill(null);
+    if (!period || period <= 1) return arr.slice();
+    for (let i = period - 1; i < arr.length; i++) {
+      let sum = 0, ok = true;
+      for (let j = i - (period - 1); j <= i; j++) {
+        const v = arr[j];
+        if (typeof v !== "number" || !Number.isFinite(v)) { ok = false; break; }
+        sum += v;
+      }
+      if (ok) out[i] = sum / period;
+    }
+    return out;
+  }
+
+  function stoch(ohlc, kLen, kSmooth, dSmooth) {
+    const kRaw = new Array(ohlc.length).fill(null);
+    for (let i = kLen - 1; i < ohlc.length; i++) {
+      let hh = -Infinity, ll = Infinity;
+      for (let j = i - (kLen - 1); j <= i; j++) {
+        hh = Math.max(hh, ohlc[j].high);
+        ll = Math.min(ll, ohlc[j].low);
+      }
+      const denom = hh - ll;
+      kRaw[i] = (!Number.isFinite(denom) || denom === 0) ? 0 : (100 * (ohlc[i].close - ll) / denom);
+    }
+    const k = smaStrict(kRaw, kSmooth);
+    const d = smaStrict(k, dSmooth);
+    return { k, d };
+  }
+
+  // ---- Build “last N bars” view for a timeframe ----
+  function buildTFView(tf, ohlc, k, d, N) {
+    const out = [];
+    const start = Math.max(0, ohlc.length - N);
+    for (let i = ohlc.length - 1; i >= start; i--) {
+      out.push({
+        date: formatTVDate(ohlc[i].time, tf),
+        k: (typeof k[i] === "number" && Number.isFinite(k[i])) ? k[i] : null,
+        d: (typeof d[i] === "number" && Number.isFinite(d[i])) ? d[i] : null
+      });
+    }
+    return out; // newest -> older
+  }
+
+  function renderSideBySide(t1, t4, td, N) {
+    const tbody = document.querySelector("#cmpTable tbody");
+    tbody.innerHTML = "";
+
+    for (let r = 0; r < N; r++) {
+      const a = t1[r] || {};
+      const b = t4[r] || {};
+      const c = td[r] || {};
+
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td class="num">${r+1}</td>
+
+        <td class="dateCell">${a.date || ""}</td>
+        <td class="num">${fmt2(a.k)}</td>
+        <td class="num">${fmt2(a.d)}</td>
+
+        <td class="dateCell">${b.date || ""}</td>
+        <td class="num">${fmt2(b.k)}</td>
+        <td class="num">${fmt2(b.d)}</td>
+
+        <td class="dateCell">${c.date || ""}</td>
+        <td class="num">${fmt2(c.k)}</td>
+        <td class="num">${fmt2(c.d)}</td>
+      `;
+      tbody.appendChild(tr);
+    }
+  }
+
+  async function loadAll() {
+    const sym = document.getElementById("sym").value.trim().toUpperCase();
+    const N = parseInt(document.getElementById("rows").value, 10);
+    if (!sym) return setStatus("اكتب رمز السهم.", false);
+
+    setStatus(`جاري التحميل... ${sym} (1H/4H/1D) Regular`);
+
+    // 1) Fetch raw
+    const [raw1m_for1h, raw1m_for4h, raw1d] = await Promise.all([
+      fetchPolygon(sym, "1H"),
+      fetchPolygon(sym, "4H"),
+      fetchPolygon(sym, "1D"),
+    ]);
+
+    // 2) Build candles
+    let ohlc1h = aggregateRegularFrom1m(raw1m_for1h, "1H");
+    let ohlc4h = aggregateRegularFrom1m(raw1m_for4h, "4H");
+    let ohlc1d = raw1d.map(x => ({ time: Math.floor(x.t/1000), open:x.o, high:x.h, low:x.l, close:x.c }));
+
+    // 3) Wait close filtering
+    ohlc1h = filterClosedBars(ohlc1h, "1H");
+    ohlc4h = filterClosedBars(ohlc4h, "4H");
+    ohlc1d = filterClosedBars(ohlc1d, "1D");
+
+    if (!ohlc1h.length || !ohlc4h.length || !ohlc1d.length) {
+      return setStatus("لا توجد بيانات كافية لواحد من الفواصل. جرّب زيادة الأيام أو انتظر إغلاق السوق.", false);
+    }
+
+    // 4) Stoch compute
+    const s1 = stoch(ohlc1h, K_LEN, K_SMOOTH, D_SMOOTH);
+    const s4 = stoch(ohlc4h, K_LEN, K_SMOOTH, D_SMOOTH);
+    const sd = stoch(ohlc1d, K_LEN, K_SMOOTH, D_SMOOTH);
+
+    // 5) Build N rows each TF (newest -> older)
+    const v1 = buildTFView("1H", ohlc1h, s1.k, s1.d, N);
+    const v4 = buildTFView("4H", ohlc4h, s4.k, s4.d, N);
+    const vd = buildTFView("1D", ohlc1d, sd.k, sd.d, N);
+
+    // 6) Render aligned-by-index side-by-side
+    renderSideBySide(v1, v4, vd, N);
+
+    const waitClose = document.getElementById("waitClose").checked ? "ON" : "OFF";
+    setStatus(`تم ✅ ${sym} | Rows=${N} | WaitClose=${waitClose} | 1H bars=${ohlc1h.length} | 4H bars=${ohlc4h.length} | 1D bars=${ohlc1d.length}`);
+  }
+
+  document.getElementById("load").addEventListener("click", () => {
+    loadAll().catch(err => {
+      console.error(err);
+      alert(err.message || String(err));
+      setStatus(err.message || String(err), false);
+    });
+  });
+
+  setStatus("جاهز. اضغط (تحميل / تحديث).");
+</script>
+
+</body>
+</html>
