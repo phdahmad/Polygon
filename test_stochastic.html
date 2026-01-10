@@ -1,0 +1,394 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>TV-like Table (Regular, 1H/4H from 1m) - Stoch 14 1 3</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Tahoma, Arial; margin: 16px; }
+    .row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+    input, select, button { padding:8px 10px; font-size:14px; }
+    .panel { margin-top: 12px; border:1px solid #ddd; border-radius: 12px; padding: 12px; }
+    .muted { color:#555; font-size: 13px; line-height: 1.6; }
+    .tableWrap { margin-top:12px; max-height: 680px; overflow:auto; border:1px solid #eee; border-radius: 12px; }
+
+    table { width:100%; border-collapse: collapse; font-size: 13px; }
+    th, td { border:1px solid #eee; padding:10px; text-align:right; white-space: nowrap; }
+    thead th { background:#fafafa; position: sticky; z-index: 3; }
+    thead tr:first-child th { top: 0; }
+    thead tr:nth-child(2) th { top: 40px; z-index: 2; }
+
+    td.dateCell { font-weight: 700; font-size: 15px; }
+    td.num { font-variant-numeric: tabular-nums; direction:ltr; text-align:right; }
+    td.pos { color:#0a7; font-weight: 600; }
+    td.neg { color:#b00; font-weight: 600; }
+    code { direction:ltr; }
+  </style>
+</head>
+<body>
+
+  <div class="row">
+    <label>رمز السهم</label>
+    <input id="sym" value="FSLR" style="width:140px" />
+
+    <label>الفريم</label>
+    <select id="tf">
+      <option value="1H" selected>1h (from 1m, Regular)</option>
+      <option value="4H">4h (from 1m, Regular)</option>
+      <option value="1D">1D</option>
+    </select>
+
+    <label>Rows</label>
+    <input id="rows" type="number" value="250" min="20" max="5000" style="width:110px" />
+
+    <button id="load">تحميل</button>
+    <button id="csv">تصدير CSV</button>
+  </div>
+
+  <div class="panel">
+    <div class="muted">
+      <b>مطابقة TradingView (Regular):</b>
+      تجميع 1h/4h يتم من بيانات <code>1m</code> مع محاذاة جلسة السوق <code>09:30–16:00</code> بتوقيت <code>America/New_York</code>.
+      عرض التاريخ في الجدول بتوقيت السعودية <code>Asia/Riyadh</code> (مثل اللي يظهر عندك في TradingView).
+      <br/>
+      Stoch ثابت: <code>14 / 1 / 3</code>. كل القيم منزلتين.
+    </div>
+    <div id="status" class="muted" style="margin-top:10px;"></div>
+
+    <div class="tableWrap">
+      <table id="tvTable">
+        <thead>
+          <tr>
+            <th id="dateHdr" rowspan="2">Date · 1h</th>
+            <th colspan="2">Stoch 14 1 3</th>
+            <th colspan="4">OHLC</th>
+            <th colspan="2">Change</th>
+          </tr>
+          <tr>
+            <th>%K</th>
+            <th>%D</th>
+            <th>Open</th>
+            <th>High</th>
+            <th>Low</th>
+            <th>Close</th>
+            <th>Δ</th>
+            <th>Δ%</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+<script>
+  const POLYGON_API_KEY = "Qp7ERl9merCAzbxEdmOqhCHacWbLyC7F";
+
+  // Stoch fixed
+  const K_LEN = 14, K_SMOOTH = 1, D_SMOOTH = 3;
+
+  // Session logic in NY
+  const SESSION_TZ = "America/New_York";
+  const SESSION_START_MIN = 9 * 60 + 30; // 09:30
+  const SESSION_END_MIN   = 16 * 60;     // 16:00
+
+  // Display like your TradingView (Saudi time)
+  const DISPLAY_TZ = "Asia/Riyadh";
+
+  let lastRows = [];
+
+  function setStatus(msg, ok=true) {
+    const el = document.getElementById("status");
+    el.innerHTML = ok ? msg : `<span style="color:#b00;font-weight:600">${msg}</span>`;
+  }
+  function fmt2(x) { return (typeof x === "number" && Number.isFinite(x)) ? x.toFixed(2) : ""; }
+
+  // -------- TZ helpers (DST-safe) --------
+  function partsInTZ(date, tz) {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: tz, hour12: false,
+      year:"numeric", month:"2-digit", day:"2-digit",
+      hour:"2-digit", minute:"2-digit", second:"2-digit"
+    }).formatToParts(date);
+
+    const out = {};
+    for (const p of parts) out[p.type] = p.value;
+    return { year:+out.year, month:+out.month, day:+out.day, hour:+out.hour, minute:+out.minute, second:+out.second };
+  }
+
+  function tzOffsetMinutes(tz, date) {
+    const p = partsInTZ(date, tz);
+    const asUTC = Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second);
+    return (asUTC - date.getTime()) / 60000;
+  }
+
+  // local time in TZ -> UTC ms
+  function utcMsForLocal(tz, y, m, d, hh, mm, ss=0) {
+    const base = Date.UTC(y, m - 1, d, hh, mm, ss);
+    let guess = base;
+    for (let i = 0; i < 3; i++) {
+      const off = tzOffsetMinutes(tz, new Date(guess));
+      const next = base - off * 60000;
+      if (Math.abs(next - guess) < 1) { guess = next; break; }
+      guess = next;
+    }
+    return guess;
+  }
+
+  function localPartsFromUtcMs(ms, tz) {
+    const p = partsInTZ(new Date(ms), tz);
+    return { y:p.year, m:p.month, d:p.day, hh:p.hour, mm:p.minute };
+  }
+
+  // TradingView-like formatting (display TZ)
+  function formatTVDate(utcSec, tf) {
+    const date = new Date(utcSec * 1000);
+    const wd  = date.toLocaleDateString("en-US", { weekday:"short", timeZone: DISPLAY_TZ });
+    const day = date.toLocaleDateString("en-US", { day:"2-digit", timeZone: DISPLAY_TZ });
+    const mon = date.toLocaleDateString("en-US", { month:"short", timeZone: DISPLAY_TZ });
+    const yr  = date.toLocaleDateString("en-US", { year:"2-digit", timeZone: DISPLAY_TZ });
+
+    if (tf === "1D") return `${wd} ${day} ${mon} '${yr}`;
+
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: DISPLAY_TZ, hour12:false, hour:"2-digit", minute:"2-digit"
+    }).formatToParts(date).reduce((a,p)=> (a[p.type]=p.value, a), {});
+    return `${wd} ${day} ${mon} '${yr} ${parts.hour}:${parts.minute}`;
+  }
+
+  // -------- Polygon fetch --------
+  function polygonUrl(symbol, multiplier, timespan, from, to) {
+    const base = `https://api.polygon.io/v2/aggs/ticker/${encodeURIComponent(symbol)}/range/${multiplier}/${timespan}/${from}/${to}`;
+    const params = new URLSearchParams({
+      adjusted: "true",
+      sort: "asc",
+      limit: "50000",
+      apiKey: POLYGON_API_KEY
+    });
+    return `${base}?${params.toString()}`;
+  }
+
+  function daysBack(tf) {
+    // 1m data is heavy, keep it reasonable:
+    if (tf === "1H") return 14;  // ~14 days
+    if (tf === "4H") return 60;  // ~60 days
+    return 730;                  // daily
+  }
+
+  async function fetchFromPolygon(symbol, tf) {
+    const now = new Date();
+    const to = now.toISOString().slice(0,10);
+    const fromDate = new Date(now.getTime() - daysBack(tf) * 24 * 60 * 60000);
+    const from = fromDate.toISOString().slice(0,10);
+
+    if (tf === "1D") {
+      const url = polygonUrl(symbol, 1, "day", from, to);
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`Polygon ${res.status}: ${await res.text()}`);
+      const data = await res.json();
+      return (data.results || []).map(r => ({ t:r.t, o:r.o, h:r.h, l:r.l, c:r.c }));
+    }
+
+    // 1m for precise intraday
+    const url = polygonUrl(symbol, 1, "minute", from, to);
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Polygon ${res.status}: ${await res.text()}`);
+    const data = await res.json();
+    return (data.results || []).map(r => ({ t:r.t, o:r.o, h:r.h, l:r.l, c:r.c }));
+  }
+
+  // -------- Session-aligned aggregation (Regular only) --------
+  // Build 1H/4H buckets anchored at 09:30 NY, using ONLY minutes within [09:30, 16:00)
+  function aggregateRegularFrom1m(bars1m, tf) {
+    const bucketMin = (tf === "1H") ? 60 : 240;
+    const map = new Map();
+
+    for (const b of bars1m) {
+      const utcMs = b.t;
+      const ny = localPartsFromUtcMs(utcMs, SESSION_TZ);
+      const localMin = ny.hh * 60 + ny.mm;
+
+      // Keep only regular session minutes
+      if (localMin < SESSION_START_MIN || localMin >= SESSION_END_MIN) continue;
+
+      // Anchor for that NY date at 09:30
+      const anchorUtc = utcMsForLocal(SESSION_TZ, ny.y, ny.m, ny.d, 9, 30, 0);
+      const deltaMin = (utcMs - anchorUtc) / 60000;
+      if (deltaMin < 0) continue;
+
+      const idx = Math.floor(deltaMin / bucketMin);
+      const bucketStartUtc = anchorUtc + idx * bucketMin * 60000;
+
+      // Prevent buckets that start at/after 16:00 (shouldn't happen after filter)
+      const endUtc = utcMsForLocal(SESSION_TZ, ny.y, ny.m, ny.d, 16, 0, 0);
+      if (bucketStartUtc >= endUtc) continue;
+
+      const key = bucketStartUtc;
+      const cur = map.get(key);
+
+      if (!cur) {
+        map.set(key, {
+          time: Math.floor(bucketStartUtc / 1000),
+          open: b.o,
+          high: b.h,
+          low: b.l,
+          close: b.c
+        });
+      } else {
+        cur.high = Math.max(cur.high, b.h);
+        cur.low  = Math.min(cur.low,  b.l);
+        cur.close = b.c;
+      }
+    }
+
+    return Array.from(map.values()).sort((a,b)=> a.time - b.time);
+  }
+
+  // -------- Stochastic (TV-like) --------
+  function smaStrict(arr, period) {
+    const out = new Array(arr.length).fill(null);
+    if (!period || period <= 1) return arr.slice();
+    for (let i = period - 1; i < arr.length; i++) {
+      let sum = 0, ok = true;
+      for (let j = i - (period - 1); j <= i; j++) {
+        const v = arr[j];
+        if (typeof v !== "number" || !Number.isFinite(v)) { ok = false; break; }
+        sum += v;
+      }
+      if (ok) out[i] = sum / period;
+    }
+    return out;
+  }
+
+  function stoch(ohlc, kLen, kSmooth, dSmooth) {
+    const kRaw = new Array(ohlc.length).fill(null);
+    for (let i = kLen - 1; i < ohlc.length; i++) {
+      let hh = -Infinity, ll = Infinity;
+      for (let j = i - (kLen - 1); j <= i; j++) {
+        hh = Math.max(hh, ohlc[j].high);
+        ll = Math.min(ll, ohlc[j].low);
+      }
+      const denom = hh - ll;
+      kRaw[i] = (!Number.isFinite(denom) || denom === 0) ? 0 : (100 * (ohlc[i].close - ll) / denom);
+    }
+    const k = smaStrict(kRaw, kSmooth);
+    const d = smaStrict(k, dSmooth);
+    return { k, d };
+  }
+
+  // -------- Render --------
+  function renderTable(symbol, tf, ohlc, k, d, maxRows) {
+    document.getElementById("dateHdr").textContent = `Date · ${tf.toLowerCase()}`;
+
+    const tbody = document.querySelector("#tvTable tbody");
+    tbody.innerHTML = "";
+    lastRows = [];
+
+    const start = Math.max(0, ohlc.length - maxRows);
+
+    for (let i = ohlc.length - 1; i >= start; i--) {
+      const o = ohlc[i];
+      const kVal = (typeof k[i] === "number" && Number.isFinite(k[i])) ? k[i] : null;
+      const dVal = (typeof d[i] === "number" && Number.isFinite(d[i])) ? d[i] : null;
+
+      const prevClose = (i > 0) ? ohlc[i-1].close : null;
+      const ch = (typeof prevClose === "number" && Number.isFinite(prevClose)) ? (o.close - prevClose) : null;
+      const chPct = (typeof prevClose === "number" && prevClose !== 0) ? (ch / prevClose * 100) : null;
+
+      const dateStr = formatTVDate(o.time, tf);
+      const cls = (ch == null) ? "" : (ch >= 0 ? "pos" : "neg");
+
+      lastRows.push({ symbol, tf, date: dateStr, k:kVal, d:dVal, open:o.open, high:o.high, low:o.low, close:o.close, change:ch, changePct:chPct });
+
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td class="dateCell">${dateStr}</td>
+        <td class="num">${fmt2(kVal)}</td>
+        <td class="num">${fmt2(dVal)}</td>
+        <td class="num">${fmt2(o.open)}</td>
+        <td class="num">${fmt2(o.high)}</td>
+        <td class="num">${fmt2(o.low)}</td>
+        <td class="num">${fmt2(o.close)}</td>
+        <td class="num ${cls}">${fmt2(ch)}</td>
+        <td class="num ${cls}">${fmt2(chPct)}</td>
+      `;
+      tbody.appendChild(tr);
+    }
+  }
+
+  function rowsToCSV(rows) {
+    const header = ["symbol","tf","date","k","d","open","high","low","close","change","changePct"];
+    const lines = [header.join(",")];
+    for (const r of rows) {
+      lines.push([
+        r.symbol,
+        r.tf,
+        `"${r.date}"`,
+        (r.k==null?"":r.k.toFixed(2)),
+        (r.d==null?"":r.d.toFixed(2)),
+        r.open.toFixed(2),
+        r.high.toFixed(2),
+        r.low.toFixed(2),
+        r.close.toFixed(2),
+        (r.change==null?"":r.change.toFixed(2)),
+        (r.changePct==null?"":r.changePct.toFixed(2)),
+      ].join(","));
+    }
+    return lines.join("\n");
+  }
+
+  function download(filename, content) {
+    const blob = new Blob([content], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  async function load() {
+    const sym = document.getElementById("sym").value.trim().toUpperCase();
+    const tf = document.getElementById("tf").value;
+    const rows = parseInt(document.getElementById("rows").value, 10);
+
+    if (!sym) return setStatus("اكتب رمز السهم.", false);
+    setStatus(`جاري التحميل... (${sym} · ${tf} · Regular)`);
+
+    const raw = await fetchFromPolygon(sym, tf);
+    if (!raw.length) return setStatus("لا توجد بيانات.", false);
+
+    let ohlc;
+    if (tf === "1D") {
+      ohlc = raw.map(x => ({ time: Math.floor(x.t/1000), open:x.o, high:x.h, low:x.l, close:x.c }));
+    } else {
+      ohlc = aggregateRegularFrom1m(raw, tf);
+    }
+
+    if (!ohlc.length) return setStatus("لم تتكوّن شموع (قد تكون المدة قصيرة أو السوق مغلق).", false);
+
+    const { k, d } = stoch(ohlc, K_LEN, K_SMOOTH, D_SMOOTH);
+    renderTable(sym, tf, ohlc, k, d, rows);
+
+    setStatus(`تم ✅ | ${sym} | ${tf} | Regular | شموع: ${ohlc.length}`);
+  }
+
+  document.getElementById("load").addEventListener("click", () => {
+    load().catch(err => {
+      console.error(err);
+      alert(err.message || String(err));
+      setStatus(err.message || String(err), false);
+    });
+  });
+
+  document.getElementById("csv").addEventListener("click", () => {
+    const sym = (document.getElementById("sym").value || "SYMBOL").toUpperCase().trim();
+    const tf = document.getElementById("tf").value;
+    download(`${sym}_${tf}_regular_1m_table.csv`, rowsToCSV(lastRows));
+  });
+
+  setStatus("جاهز. اختر 1h أو 4h واضغط (تحميل).");
+</script>
+
+</body>
+</html>
