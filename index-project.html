@@ -4,196 +4,143 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>كشف أمراض المحاصيل من صور الأوراق باستخدام CNN — تقرير بحثي</title>
-<meta name="description" content="تقرير بحثي في الزراعة الذكية: استخدام الشبكات العصبية التلافيفية (CNN) لكشف أمراض المحاصيل من صور الأوراق ونشرها في تطبيق جوال للمزارعين.">
+<meta name="description" content="تقرير بحثي في الزراعة الذكية: استخدام CNN لكشف أمراض المحاصيل من صور الأوراق ونشرها في تطبيق جوال للمزارعين، مع منهجية تفصيلية، اعتبارات أخلاقية، ومناقشة نقدية.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Reem+Kufi:wght@500;600;700&family=Readex+Pro:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
   :root{
-    --paper:#F4F1E6;          /* warm paper */
-    --paper-2:#EFEBDC;
-    --ink:#1B241B;            /* deep green-black */
-    --ink-soft:#43503F;
-    --leaf:#2E5D3A;           /* deep leaf green */
-    --leaf-2:#3F7C4E;
-    --leaf-tint:#E4ECDD;
-    --rust:#B5612A;           /* leaf-rust accent */
-    --rust-2:#CF7C3A;
-    --rust-tint:#F3E3D2;
-    --line:#D7D1BE;
-    --shadow:0 1px 2px rgba(27,36,27,.05),0 12px 30px -12px rgba(27,36,27,.18);
-    --radius:16px;
-    --maxw:880px;
-    --display:'Reem Kufi',serif;
-    --body:'Readex Pro',system-ui,sans-serif;
+    --paper:#F4F1E6;--paper-2:#EFEBDC;--ink:#1B241B;--ink-soft:#43503F;
+    --leaf:#2E5D3A;--leaf-2:#3F7C4E;--leaf-tint:#E4ECDD;
+    --rust:#B5612A;--rust-2:#CF7C3A;--rust-tint:#F3E3D2;
+    --line:#D7D1BE;--shadow:0 1px 2px rgba(27,36,27,.05),0 12px 30px -12px rgba(27,36,27,.18);
+    --radius:16px;--maxw:880px;--display:'Reem Kufi',serif;--body:'Readex Pro',system-ui,sans-serif;
   }
   *{box-sizing:border-box}
   html{scroll-behavior:smooth}
-  body{
-    margin:0;font-family:var(--body);color:var(--ink);line-height:1.95;
-    font-weight:400;font-size:17px;
-    background:
-      radial-gradient(900px 500px at 100% -10%, rgba(46,93,58,.10), transparent 60%),
-      radial-gradient(700px 420px at -10% 8%, rgba(181,97,42,.08), transparent 55%),
-      var(--paper);
-    background-attachment:fixed;
-  }
+  body{margin:0;font-family:var(--body);color:var(--ink);line-height:1.95;font-weight:400;font-size:17px;
+    background:radial-gradient(900px 500px at 100% -10%, rgba(46,93,58,.10), transparent 60%),
+      radial-gradient(700px 420px at -10% 8%, rgba(181,97,42,.08), transparent 55%),var(--paper);
+    background-attachment:fixed;}
   ::selection{background:var(--leaf);color:var(--paper)}
-
-  /* reading progress — fills right→left (RTL) */
+  a{color:var(--leaf)}
   #progress{position:fixed;top:0;right:0;height:4px;width:0;z-index:60;
     background:linear-gradient(90deg,var(--rust),var(--leaf));box-shadow:0 0 12px rgba(46,93,58,.4)}
-
-  /* sticky condensed bar */
-  #topbar{position:fixed;top:0;right:0;left:0;z-index:50;
-    display:flex;align-items:center;gap:14px;padding:12px 22px;
-    background:rgba(244,241,230,.86);backdrop-filter:blur(10px);
-    border-bottom:1px solid var(--line);
+  #topbar{position:fixed;top:0;right:0;left:0;z-index:50;display:flex;align-items:center;gap:14px;padding:12px 22px;
+    background:rgba(244,241,230,.88);backdrop-filter:blur(10px);border-bottom:1px solid var(--line);
     transform:translateY(-110%);transition:transform .35s cubic-bezier(.2,.7,.2,1)}
   #topbar.show{transform:translateY(0)}
   #topbar .dot{width:11px;height:11px;border-radius:50%;background:var(--leaf);box-shadow:0 0 0 4px var(--leaf-tint)}
   #topbar b{font-family:var(--display);font-weight:600;font-size:15px}
-  #topbar a{margin-inline-start:auto;font-size:13px;color:var(--leaf);text-decoration:none;font-weight:600;
-    border:1px solid var(--leaf);padding:5px 12px;border-radius:999px;transition:.2s}
+  #topbar .sp{margin-inline-start:auto;display:flex;gap:8px}
+  #topbar a{font-size:13px;color:var(--leaf);text-decoration:none;font-weight:600;border:1px solid var(--leaf);padding:5px 12px;border-radius:999px;transition:.2s}
   #topbar a:hover{background:var(--leaf);color:var(--paper)}
-
   .wrap{max-width:var(--maxw);margin:0 auto;padding:0 22px}
-
-  /* HERO */
-  header.hero{position:relative;overflow:hidden;padding:96px 0 56px;
-    border-bottom:1px solid var(--line)}
+  header.hero{position:relative;overflow:hidden;padding:96px 0 56px;border-bottom:1px solid var(--line)}
   header.hero::before{content:"";position:absolute;inset:0;z-index:0;opacity:.5;
-    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><path d='M60 8c22 14 30 38 0 104C30 46 38 22 60 8z' fill='none' stroke='%232E5D3A' stroke-opacity='0.10' stroke-width='1.4'/><path d='M60 20v82M60 40l16-10M60 56l18-12M60 72l16-10M60 40l-16-10M60 56l-18-12M60 72l-16-10' stroke='%232E5D3A' stroke-opacity='0.08' stroke-width='1'/></svg>");
-    background-size:150px}
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><path d='M60 8c22 14 30 38 0 104C30 46 38 22 60 8z' fill='none' stroke='%232E5D3A' stroke-opacity='0.10' stroke-width='1.4'/><path d='M60 20v82M60 40l16-10M60 56l18-12M60 72l16-10M60 40l-16-10M60 56l-18-12M60 72l-16-10' stroke='%232E5D3A' stroke-opacity='0.08' stroke-width='1'/></svg>");background-size:150px}
   .hero-inner{position:relative;z-index:1}
-  .field-tag{display:inline-flex;align-items:center;gap:9px;
-    background:var(--leaf-tint);color:var(--leaf);font-weight:600;font-size:13px;
-    padding:7px 15px;border-radius:999px;border:1px solid rgba(46,93,58,.25);
-    letter-spacing:.2px}
+  .field-tag{display:inline-flex;align-items:center;gap:9px;background:var(--leaf-tint);color:var(--leaf);font-weight:600;font-size:13px;padding:7px 15px;border-radius:999px;border:1px solid rgba(46,93,58,.25)}
   .field-tag svg{width:15px;height:15px}
-  h1.title{font-family:var(--display);font-weight:700;line-height:1.28;
-    font-size:clamp(30px,6vw,52px);margin:20px 0 10px;color:var(--ink);
-    letter-spacing:-.5px}
+  h1.title{font-family:var(--display);font-weight:700;line-height:1.28;font-size:clamp(30px,6vw,52px);margin:20px 0 10px;color:var(--ink);letter-spacing:-.5px}
   .title .hl{color:var(--leaf)}
-  .subtitle{font-size:clamp(16px,2.4vw,20px);color:var(--ink-soft);font-weight:400;max-width:640px;margin:0 0 6px}
+  .subtitle{font-size:clamp(16px,2.4vw,20px);color:var(--ink-soft);max-width:640px;margin:0 0 6px}
   .kicker{color:var(--rust);font-weight:600;font-size:15px;margin-top:18px}
   .meta{display:flex;flex-wrap:wrap;gap:10px;margin-top:26px}
-  .meta .chip{background:#fff;border:1px solid var(--line);border-radius:12px;
-    padding:10px 15px;font-size:13.5px;box-shadow:var(--shadow);min-width:0}
+  .meta .chip{background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px 15px;font-size:13.5px;box-shadow:var(--shadow)}
   .meta .chip span{display:block;color:var(--rust);font-weight:600;font-size:11px;letter-spacing:.4px;margin-bottom:2px}
   .meta .chip b{font-weight:600;color:var(--ink)}
-
-  /* scope banner */
-  .scope{background:var(--leaf);color:var(--paper);border-radius:var(--radius);
-    padding:20px 22px;margin:30px 0 0;box-shadow:var(--shadow);position:relative;z-index:1}
+  .scope{background:var(--leaf);color:var(--paper);border-radius:var(--radius);padding:20px 22px;margin:30px 0 0;box-shadow:var(--shadow);position:relative;z-index:1}
   .scope b{color:#fff;font-weight:600}
-  .scope .lbl{display:inline-block;background:rgba(255,255,255,.16);color:#fff;
-    font-weight:600;font-size:12px;padding:4px 11px;border-radius:999px;margin-bottom:10px}
-
-  /* TOC */
+  .scope .lbl{display:inline-block;background:rgba(255,255,255,.16);color:#fff;font-weight:600;font-size:12px;padding:4px 11px;border-radius:999px;margin-bottom:10px}
   nav.toc{margin:46px 0 10px}
   nav.toc h2{font-family:var(--display);font-size:18px;color:var(--ink-soft);margin:0 0 14px;font-weight:600}
   .toc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px}
-  .toc-grid a{display:flex;align-items:center;gap:11px;text-decoration:none;color:var(--ink);
-    background:#fff;border:1px solid var(--line);border-radius:12px;padding:11px 13px;
-    font-size:14.5px;transition:.18s;box-shadow:0 1px 2px rgba(27,36,27,.04)}
+  .toc-grid a{display:flex;align-items:center;gap:11px;text-decoration:none;color:var(--ink);background:#fff;border:1px solid var(--line);border-radius:12px;padding:11px 13px;font-size:14.5px;transition:.18s;box-shadow:0 1px 2px rgba(27,36,27,.04)}
   .toc-grid a:hover{border-color:var(--leaf);transform:translateX(-3px);color:var(--leaf)}
   .toc-grid a.active{border-color:var(--leaf);background:var(--leaf-tint);color:var(--leaf);font-weight:600}
   .toc-grid .n{font-family:var(--display);font-weight:700;color:var(--rust);min-width:26px;text-align:center}
-
-  /* SECTIONS */
   main{padding:30px 0 10px}
-  section.sec{padding:34px 0;border-top:1px solid var(--line);
-    opacity:0;transform:translateY(18px);transition:opacity .6s ease,transform .6s ease}
+  section.sec{padding:34px 0;border-top:1px solid var(--line);opacity:0;transform:translateY(18px);transition:opacity .6s ease,transform .6s ease}
   section.sec.in{opacity:1;transform:none}
   .sec-head{display:flex;align-items:center;gap:16px;margin-bottom:8px;scroll-margin-top:80px}
-  .sec-num{flex:none;width:48px;height:48px;border-radius:14px;display:grid;place-items:center;
-    font-family:var(--display);font-weight:700;font-size:21px;color:var(--paper);
-    background:linear-gradient(145deg,var(--leaf),var(--leaf-2));box-shadow:var(--shadow)}
-  section.sec h2.h{font-family:var(--display);font-weight:600;font-size:clamp(22px,3.6vw,30px);
-    margin:0;color:var(--ink);line-height:1.4}
+  .sec-num{flex:none;width:48px;height:48px;border-radius:14px;display:grid;place-items:center;font-family:var(--display);font-weight:700;font-size:21px;color:var(--paper);background:linear-gradient(145deg,var(--leaf),var(--leaf-2));box-shadow:var(--shadow)}
+  section.sec h2.h{font-family:var(--display);font-weight:600;font-size:clamp(22px,3.6vw,30px);margin:0;color:var(--ink);line-height:1.4}
   h3.h{font-family:var(--display);font-weight:600;font-size:19px;color:var(--leaf);margin:26px 0 6px}
   p{margin:12px 0;color:var(--ink);text-align:justify}
   .lead{font-size:18.5px;color:var(--ink-soft)}
   strong{font-weight:600;color:var(--ink)}
   .accent{color:var(--rust);font-weight:600}
-
   ul.list{list-style:none;padding:0;margin:14px 0}
   ul.list li{position:relative;padding-inline-start:30px;margin:9px 0;text-align:justify}
-  ul.list li::before{content:"";position:absolute;inset-inline-start:6px;top:13px;
-    width:9px;height:9px;border-radius:50% 50% 50% 0;transform:rotate(45deg);
-    background:var(--rust);box-shadow:0 0 0 3px var(--rust-tint)}
-
-  .callout{background:var(--rust-tint);border:1px solid rgba(181,97,42,.3);
-    border-radius:var(--radius);padding:18px 20px;margin:20px 0}
+  ul.list li::before{content:"";position:absolute;inset-inline-start:6px;top:13px;width:9px;height:9px;border-radius:50% 50% 50% 0;transform:rotate(45deg);background:var(--rust);box-shadow:0 0 0 3px var(--rust-tint)}
+  .callout{background:var(--rust-tint);border:1px solid rgba(181,97,42,.3);border-radius:var(--radius);padding:18px 20px;margin:20px 0}
   .callout .lbl{color:var(--rust);font-weight:600}
-
-  /* TABLES */
+  .note{background:var(--leaf-tint);border:1px solid rgba(46,93,58,.28);border-radius:var(--radius);padding:16px 18px;margin:18px 0}
+  .note .lbl{color:var(--leaf);font-weight:600}
+  .cite{font-size:.82em;font-weight:600;color:var(--rust);text-decoration:none;vertical-align:super;padding:0 1px}
+  .cite:hover{text-decoration:underline}
   .tablewrap{overflow-x:auto;margin:20px 0;border-radius:var(--radius);box-shadow:var(--shadow);border:1px solid var(--line)}
   table{width:100%;border-collapse:collapse;background:#fff;font-size:14.5px;min-width:520px}
-  thead th{background:linear-gradient(145deg,var(--leaf),var(--leaf-2));color:var(--paper);
-    font-weight:600;text-align:right;padding:13px 14px;font-family:var(--body)}
+  thead th{background:linear-gradient(145deg,var(--leaf),var(--leaf-2));color:var(--paper);font-weight:600;text-align:right;padding:13px 14px}
   tbody td{padding:12px 14px;border-top:1px solid var(--line);vertical-align:top;text-align:right;line-height:1.7}
   tbody tr:nth-child(even){background:var(--leaf-tint)}
   td.c{text-align:center;font-weight:600;color:var(--leaf)}
-
-  /* CASE CARDS */
+  /* diagrams */
+  figure.fig{margin:24px 0}
+  .pipe{display:flex;flex-wrap:nowrap;gap:0;align-items:stretch;overflow-x:auto;padding:6px 2px 12px;direction:rtl}
+  .step{flex:0 0 auto;width:150px;background:#fff;border:1.5px solid var(--leaf);border-radius:14px;padding:14px 12px;text-align:center;box-shadow:var(--shadow);position:relative}
+  .step.alt{border-color:var(--rust);background:var(--rust-tint)}
+  .step .si{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;margin:0 auto 8px;font-family:var(--display);font-weight:700;color:#fff;background:var(--leaf)}
+  .step.alt .si{background:var(--rust)}
+  .step b{display:block;font-size:14px;color:var(--ink);font-weight:600;line-height:1.5}
+  .step small{display:block;color:var(--ink-soft);font-size:11.5px;margin-top:3px}
+  .arrow{flex:0 0 auto;align-self:center;color:var(--leaf-2);font-size:22px;padding:0 4px;user-select:none}
+  .fig figcaption{font-size:13px;color:var(--ink-soft);text-align:center;margin-top:4px}
+  .cnn{display:flex;flex-wrap:nowrap;overflow-x:auto;align-items:stretch;direction:rtl;padding:6px 2px 12px;gap:0}
+  .layer{flex:0 0 auto;width:160px;border-radius:14px;padding:14px 12px;text-align:center;box-shadow:var(--shadow);color:#fff;position:relative}
+  .layer small{display:block;opacity:.92;font-size:11.5px;margin-top:4px;color:#fff}
+  .layer b{font-size:14px;color:#fff}
   .cases{display:grid;gap:18px;margin:22px 0}
-  .case{background:#fff;border:1px solid var(--line);border-radius:var(--radius);
-    padding:22px 22px 20px;box-shadow:var(--shadow);position:relative;overflow:hidden}
-  .case::before{content:"";position:absolute;top:0;right:0;width:6px;height:100%;
-    background:linear-gradient(var(--leaf),var(--rust))}
-  .case .badge{display:inline-flex;align-items:center;gap:8px;font-weight:600;font-size:12.5px;
-    color:var(--rust);background:var(--rust-tint);padding:5px 12px;border-radius:999px;margin-bottom:8px}
+  .case{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:22px 22px 20px;box-shadow:var(--shadow);position:relative;overflow:hidden}
+  .case::before{content:"";position:absolute;top:0;right:0;width:6px;height:100%;background:linear-gradient(var(--leaf),var(--rust))}
+  .case .badge{display:inline-flex;align-items:center;gap:8px;font-weight:600;font-size:12.5px;color:var(--rust);background:var(--rust-tint);padding:5px 12px;border-radius:999px;margin-bottom:8px}
   .case h3{font-family:var(--display);font-size:20px;color:var(--ink);margin:4px 0 6px;font-weight:600}
-  .case .pt{margin:7px 0;padding-inline-start:0}
   .case .pt b{color:var(--leaf)}
-
-  /* timeline-ish for steps optional reuse via list */
   .ref-list{counter-reset:r;list-style:none;padding:0;margin:14px 0}
-  .ref-list li{counter-increment:r;position:relative;padding:11px 0 11px 0;padding-inline-start:42px;
-    border-top:1px dashed var(--line);font-size:14px;color:var(--ink-soft);direction:ltr;text-align:left;line-height:1.6}
-  .ref-list li::before{content:counter(r);position:absolute;inset-inline-start:0;top:11px;
-    width:28px;height:28px;border-radius:8px;display:grid;place-items:center;
-    background:var(--leaf-tint);color:var(--leaf);font-weight:700;font-family:var(--display);font-size:13px;direction:ltr}
-
+  .ref-list li{counter-increment:r;position:relative;padding:11px 0;padding-inline-start:42px;border-top:1px dashed var(--line);font-size:13.5px;color:var(--ink-soft);direction:ltr;text-align:left;line-height:1.65;scroll-margin-top:80px}
+  .ref-list li::before{content:counter(r);position:absolute;inset-inline-start:0;top:11px;width:28px;height:28px;border-radius:8px;display:grid;place-items:center;background:var(--leaf-tint);color:var(--leaf);font-weight:700;font-family:var(--display);font-size:13px}
+  .ref-list li:target{background:var(--rust-tint);border-radius:8px}
+  .ref-list a{color:var(--leaf);text-decoration:none;font-weight:600}
+  .ref-list a:hover{text-decoration:underline}
   footer{margin-top:40px;border-top:1px solid var(--line);background:var(--paper-2)}
   footer .wrap{padding:30px 22px}
   footer p{color:var(--ink-soft);font-size:13.5px;margin:6px 0}
   footer .leaf{color:var(--leaf);font-weight:600;font-family:var(--display)}
-
-  /* back to top */
-  #toTop{position:fixed;bottom:22px;left:22px;z-index:55;width:46px;height:46px;border-radius:14px;
-    border:1px solid var(--line);background:#fff;color:var(--leaf);cursor:pointer;display:grid;place-items:center;
-    box-shadow:var(--shadow);opacity:0;pointer-events:none;transition:.3s;font-size:20px}
+  footer a{font-weight:600}
+  .tech{display:inline-block;background:var(--rust-tint);color:var(--rust);font-weight:600;font-size:12px;padding:2px 9px;border-radius:999px}
+  .pcard{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;margin:12px 0;box-shadow:var(--shadow);position:relative;overflow:hidden}
+  .pcard::before{content:"";position:absolute;top:0;right:0;width:5px;height:100%;background:linear-gradient(var(--leaf),var(--rust))}
+  .pcard .q{font-weight:600;color:var(--ink)}
+  .pcard .why{color:var(--ink-soft);font-size:14.5px;margin-top:4px}
+  .new{background:var(--rust);color:#fff;font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;margin-inline-start:8px}
+  #toTop{position:fixed;bottom:22px;left:22px;z-index:55;width:46px;height:46px;border-radius:14px;border:1px solid var(--line);background:#fff;color:var(--leaf);cursor:pointer;display:grid;place-items:center;box-shadow:var(--shadow);opacity:0;pointer-events:none;transition:.3s;font-size:20px}
   #toTop.show{opacity:1;pointer-events:auto}
   #toTop:hover{background:var(--leaf);color:#fff}
-
-  @media(max-width:560px){
-    body{font-size:16px;line-height:1.85}
-    .sec-num{width:40px;height:40px;font-size:18px;border-radius:12px}
-    header.hero{padding:74px 0 40px}
-  }
-  @media print{
-    #progress,#topbar,#toTop,nav.toc{display:none!important}
-    body{background:#fff}
-    section.sec{opacity:1!important;transform:none!important;break-inside:avoid}
-    .case,.tablewrap{break-inside:avoid}
-  }
-  /* respect reduced motion */
-  @media(prefers-reduced-motion:reduce){
-    section.sec{opacity:1;transform:none;transition:none}
-    html{scroll-behavior:auto}
-  }
+  @media(max-width:560px){body{font-size:16px;line-height:1.85}.sec-num{width:40px;height:40px;font-size:18px;border-radius:12px}header.hero{padding:74px 0 40px}}
+  @media print{#progress,#topbar,#toTop,nav.toc{display:none!important}body{background:#fff}section.sec{opacity:1!important;transform:none!important;break-inside:avoid}.case,.tablewrap,figure.fig{break-inside:avoid}}
+  @media(prefers-reduced-motion:reduce){section.sec{opacity:1;transform:none;transition:none}html{scroll-behavior:auto}}
 </style>
 </head>
 <body>
 <div id="progress"></div>
-
 <div id="topbar">
   <span class="dot"></span>
   <b>التشخيص المبكر لأمراض المحاصيل — CNN</b>
-  <a href="#top">للأعلى ↑</a>
+  <span class="sp">
+    <a href="#s18">سجلّ الموجهات</a>
+    <a href="#top">للأعلى ↑</a>
+  </span>
 </div>
 
 <header class="hero" id="top">
@@ -205,17 +152,15 @@
     <h1 class="title">كشف أمراض المحاصيل من <span class="hl">صور الأوراق</span> بالشبكات العصبية التلافيفية (CNN)</h1>
     <p class="subtitle">من التشخيص عالي الدقة إلى أداة عملية في يد المزارع عبر تطبيق جوال.</p>
     <p class="kicker">الزاوية البحثية: استخدام CNN لكشف أمراض المحاصيل مبكرًا من الصور الورقية.</p>
-
     <div class="meta">
       <div class="chip"><span>نوع الوثيقة</span><b>تقرير عن فكرة بحثية معتمدة</b></div>
       <div class="chip"><span>المنهج</span><b>تعلّم عميق · رؤية حاسوبية</b></div>
       <div class="chip"><span>المخرَج</span><b>نموذج + تطبيق جوال</b></div>
-      <div class="chip"><span>التاريخ</span><b>مايو ٢٠٢٦</b></div>
+      <div class="chip"><span>النسخة</span><b>مُحدّثة (معالِجة للملاحظات)</b></div>
     </div>
-
     <div class="scope">
       <span class="lbl">نطاق التقرير والالتزام بالموضوع</span>
-      <div>يلتزم هذا التقرير <b>حصرًا</b> بالمجال المعتمد «الزراعة الذكية» وبالزاوية المحددة «استخدام CNN لكشف أمراض المحاصيل من صور الأوراق»، ولا يتطرّق إلى أي مجال آخر. ويتضمّن <b>ثلاث حالات دراسية تطبيقية</b> ضمن الموضوع نفسه (القسم ٨).</div>
+      <div>يلتزم هذا التقرير <b>حصرًا</b> بالمجال المعتمد «الزراعة الذكية» وبالزاوية المحددة «استخدام CNN لكشف أمراض المحاصيل من صور الأوراق»، ولا يتطرّق إلى أي مجال آخر. ويتضمّن <b>ثلاث حالات دراسية</b> (القسم ٨)، ومنهجية تفصيلية، وقسمًا للأخلاقيات والخصوصية (١٣)، ومناقشة نقدية للحدود (١٤).</div>
     </div>
   </div>
 </header>
@@ -225,8 +170,8 @@
     <h2>المحتويات</h2>
     <div class="toc-grid" id="tocGrid">
       <a href="#s1"><span class="n">١</span> الملخص التنفيذي</a>
-      <a href="#s2"><span class="n">٢</span> خلفية المشكلة وأهميتها</a>
-      <a href="#s3"><span class="n">٣</span> المشكلة والفرضية والأسئلة</a>
+      <a href="#s2"><span class="n">٢</span> خلفية المشكلة</a>
+      <a href="#s3"><span class="n">٣</span> المشكلة والفرضية</a>
       <a href="#s4"><span class="n">٤</span> أهداف البحث</a>
       <a href="#s5"><span class="n">٥</span> الإطار التقني</a>
       <a href="#s6"><span class="n">٦</span> الدراسات السابقة</a>
@@ -236,9 +181,12 @@
       <a href="#s10"><span class="n">١٠</span> مقاييس التقييم</a>
       <a href="#s11"><span class="n">١١</span> النتائج المتوقعة</a>
       <a href="#s12"><span class="n">١٢</span> التحديات والمخاطر</a>
-      <a href="#s13"><span class="n">١٣</span> الخطة الزمنية</a>
-      <a href="#s14"><span class="n">١٤</span> الخاتمة</a>
-      <a href="#s15"><span class="n">١٥</span> المراجع</a>
+      <a href="#s13"><span class="n">١٣</span> الأخلاقيات والخصوصية</a>
+      <a href="#s14"><span class="n">١٤</span> الحدود ومناقشة نقدية</a>
+      <a href="#s15"><span class="n">١٥</span> الخطة الزمنية</a>
+      <a href="#s16"><span class="n">١٦</span> الخاتمة</a>
+      <a href="#s17"><span class="n">١٧</span> المراجع</a>
+      <a href="#s18"><span class="n">١٨</span> سجلّ الموجهات</a>
     </div>
   </nav>
 </div>
@@ -247,18 +195,18 @@
 
   <section class="sec" id="s1">
     <div class="sec-head"><div class="sec-num">١</div><h2 class="h">الملخص التنفيذي</h2></div>
-    <p class="lead">تقترح هذه الفكرة بناء نظام لكشف أمراض المحاصيل مبكرًا اعتمادًا على شبكات عصبية تلافيفية (CNN) تُحلّل صور أوراق النباتات، ثم تحويل النموذج إلى تطبيق جوال يستخدمه المزارع مباشرة في الحقل: يلتقط صورة للورقة فيحصل على تشخيص فوري لاسم المرض وتوصية بالتعامل معه.</p>
+    <p class="lead">تقترح هذه الفكرة بناء نظام لكشف أمراض المحاصيل مبكرًا اعتمادًا على شبكات عصبية تلافيفية (CNN) تُحلّل صور أوراق النباتات، ثم تحويل النموذج إلى تطبيق جوال يستخدمه المزارع مباشرة: يلتقط صورة للورقة فيحصل على تشخيص فوري لاسم المرض وتوصية بالتعامل معه.</p>
     <p>الأهمية مزدوجة: علميًا في تحسين دقة التشخيص المبكر، وعمليًا في تقليل الخسائر الزراعية وترشيد استخدام المبيدات عبر وضع الأداة في متناول المزارع.</p>
     <div class="callout"><span class="lbl">السؤال البحثي الرئيسي:</span> كيف يمكن لنماذج الرؤية الحاسوبية القائمة على CNN أن تحسّن دقة تشخيص أمراض النبات مبكرًا من صور ورقية، وتُنشر بكفاءة على الأجهزة الجوّالة في يد المزارع؟</div>
-    <p>تؤكّد الأدبيات الحديثة جدوى المسار: نماذج خفيفة الوزن مثل <strong>MobileNet</strong> و<strong>EfficientNet-B0/B1</strong> تحقق دقة تتجاوز ٩٤–٩٩٪ على مجموعات بيانات قياسية، وتعمل على الهاتف بعد تحويلها إلى صيغة <strong>TensorFlow Lite</strong> بأحجام صغيرة (نحو ١٣ ميجابايت). لكن التحدي الأهم ليس الدقة المخبرية، بل صمود النموذج أمام صور المزارعين الواقعية — وهي نقطة محورية يعالجها هذا التقرير.</p>
+    <p>تؤكّد الأدبيات الحديثة جدوى المسار: نماذج خفيفة مثل <strong>MobileNet</strong> و<strong>EfficientNet-B0/B1</strong> تحقق دقة ٩٤–٩٩٪ على بيانات قياسية وتعمل على الهاتف بعد التحويل إلى <strong>TensorFlow Lite</strong>. لكن التحدي الأهم ليس الدقة المخبرية، بل صمود النموذج أمام صور المزارعين الواقعية — وهي نقطة محورية يعالجها هذا التقرير ويناقش حدودها نقديًا.</p>
   </section>
 
   <section class="sec" id="s2">
     <div class="sec-head"><div class="sec-num">٢</div><h2 class="h">خلفية المشكلة وأهميتها</h2></div>
     <h3 class="h">٢.١ الأهمية الزراعية والاقتصادية</h3>
-    <p>تُسبّب أمراض النبات خسائر كبيرة في الإنتاج والجودة، وتزداد خطورتها كلّما تأخّر اكتشافها. الكشف المبكر يفتح نافذة للتدخّل الموضعي قبل انتشار المرض، فيقلّل الخسارة ويُرشّد استخدام المبيدات (تكلفة أقل وأثر بيئي أخف). وتتفاقم المشكلة لأن كثيرًا من صغار المزارعين لا يصلون بسهولة إلى خبير أمراض نباتية، خصوصًا في المناطق الريفية.</p>
+    <p>تُسبّب أمراض النبات خسائر كبيرة في الإنتاج والجودة، وتزداد خطورتها كلّما تأخّر اكتشافها. الكشف المبكر يفتح نافذة للتدخّل الموضعي قبل انتشار المرض، فيقلّل الخسارة ويُرشّد المبيدات. وتتفاقم المشكلة لأن كثيرًا من صغار المزارعين لا يصلون بسهولة إلى خبير أمراض نباتية.</p>
     <h3 class="h">٢.٢ لماذا التشخيص من صورة ورقة عبر الجوال؟</h3>
-    <p>معظم أعراض الأمراض تظهر بصريًا على الأوراق (بقع، تبقّعات، اصفرار، تبرقش، ذبول)، وهو ما يجعل تصنيف الصور مدخلًا طبيعيًا. والهاتف الذكي متوفّر بين أيدي شريحة واسعة من المزارعين، فيتحوّل من كاميرا بسيطة إلى أداة تشخيص لحظية إذا حُمّل عليها نموذج مدرَّب جيدًا — دون الحاجة إلى مختبر أو زيارة خبير.</p>
+    <p>معظم أعراض الأمراض تظهر بصريًا على الأوراق (بقع، اصفرار، تبرقش، ذبول)، فيكون تصنيف الصور مدخلًا طبيعيًا. والهاتف الذكي متوفّر بين أيدي شريحة واسعة من المزارعين، فيتحوّل إلى أداة تشخيص لحظية إذا حُمّل عليها نموذج مدرَّب جيدًا — دون مختبر أو زيارة خبير.</p>
   </section>
 
   <section class="sec" id="s3">
@@ -267,9 +215,9 @@
     <div class="callout"><span class="lbl">الفرضية:</span> نموذج CNN مُدرَّب جيدًا ومُحسَّن للأجهزة الجوّالة يمكنه تشخيص أمراض المحاصيل من صور الأوراق بدقة عالية، ونشره في تطبيق جوال يجعله أداة عملية فعّالة في يد المزارع.</div>
     <p><strong>الأسئلة الفرعية:</strong></p>
     <ul class="list">
-      <li>أيُّ المعماريات يوازن أفضل بين الدقة وخفّة الوزن المناسبة للهاتف (ResNet/EfficientNet مقابل MobileNet مقابل النماذج الهجينة الخفيفة)؟</li>
+      <li>أيُّ المعماريات يوازن أفضل بين الدقة وخفّة الوزن للهاتف (ResNet/EfficientNet مقابل MobileNet مقابل الهجينة الخفيفة)؟</li>
       <li>كم تخسر الدقة عند ضغط النموذج وتكميمه (Quantization) للنشر على الجهاز، وهل الخسارة مقبولة؟</li>
-      <li>كيف يصمد النموذج أمام صور المزارعين الواقعية (إضاءة وخلفيات وزوايا متغيّرة) لا صور المختبر النظيفة؟</li>
+      <li>كيف يصمد النموذج أمام صور المزارعين الواقعية (إضاءة وخلفيات وزوايا متغيّرة) لا صور المختبر؟</li>
       <li>كيف يُترجَم التشخيص إلى توصية قابلة للتنفيذ يفهمها المزارع ويثق بها؟</li>
     </ul>
   </section>
@@ -278,9 +226,9 @@
     <div class="sec-head"><div class="sec-num">٤</div><h2 class="h">أهداف البحث</h2></div>
     <ul class="list">
       <li>تجميع/إعداد مجموعة بيانات صور أوراق لمحاصيل متعددة، سليمة ومصابة، تشمل ظروفًا حقلية واقعية.</li>
-      <li>تدريب وضبط نموذج CNN عبر التعلّم المنقول (ResNet/EfficientNet) ثم تحسينه بنسخة خفيفة للهاتف (MobileNet/EfficientNet-Lite).</li>
-      <li>تقييم النموذج على بيانات اختبار مستقلة بمقاييس دقيقة (Precision وRecall وF1)، إضافة إلى حجم النموذج وزمن الاستدلال.</li>
-      <li>تحويل النموذج إلى TensorFlow Lite ودمجه في تطبيق جوال يعمل دون اتصال، يلتقط الصورة ويُظهر التشخيص والتوصية.</li>
+      <li>تدريب وضبط نموذج CNN عبر التعلّم المنقول ثم تحسينه بنسخة خفيفة للهاتف.</li>
+      <li>تقييم النموذج على بيانات مستقلة بمقاييس دقيقة (Precision وRecall وF1) إضافة إلى الحجم وزمن الاستدلال.</li>
+      <li>تحويل النموذج إلى TensorFlow Lite ودمجه في تطبيق جوال يعمل دون اتصال.</li>
       <li>اختبار التطبيق ميدانيًا مع مستخدمين حقيقيين وقياس قابليته للاستخدام وموثوقيته.</li>
     </ul>
   </section>
@@ -288,27 +236,41 @@
   <section class="sec" id="s5">
     <div class="sec-head"><div class="sec-num">٥</div><h2 class="h">الإطار التقني</h2></div>
     <h3 class="h">٥.١ كيف تعمل CNN في تصنيف الأمراض</h3>
-    <p>تتعلّم CNN تلقائيًا تمثيلات هرمية للسمات البصرية (حواف ← أنسجة ← أنماط الأعراض المرضية) من الصور دون هندسة يدوية للسمات. وعبر «التعلّم المنقول» ننطلق من نموذج مُدرَّب مسبقًا على بيانات ضخمة ونُعيد ضبطه على بيانات أوراق النبات، فنقلّل الحاجة إلى أعداد هائلة من الصور ونُسرّع التدريب.</p>
+    <p>تتعلّم CNN تلقائيًا تمثيلات هرمية للسمات البصرية من الصور دون هندسة يدوية للسمات: تبدأ الطبقات المبكرة بالحواف والألوان، ثم الطبقات الوسطى بالأنسجة والبقع، فالطبقات العميقة بأنماط الأعراض المرضية، وأخيرًا يحوّلها المصنِّف إلى تشخيص بدرجة ثقة.</p>
+    <figure class="fig">
+      <div class="cnn">
+        <div class="layer" style="background:linear-gradient(160deg,#2E5D3A,#3F7C4E)"><b>صورة الورقة</b><small>المُدخَل (224×224)</small></div>
+        <span class="arrow">←</span>
+        <div class="layer" style="background:linear-gradient(160deg,#3F7C4E,#5a9568)"><b>طبقات مبكرة</b><small>حواف وألوان</small></div>
+        <span class="arrow">←</span>
+        <div class="layer" style="background:linear-gradient(160deg,#5a9568,#86a26a)"><b>طبقات وسطى</b><small>أنسجة وبقع</small></div>
+        <span class="arrow">←</span>
+        <div class="layer" style="background:linear-gradient(160deg,#a8884a,#B5612A)"><b>طبقات عميقة</b><small>أنماط الأعراض</small></div>
+        <span class="arrow">←</span>
+        <div class="layer" style="background:linear-gradient(160deg,#B5612A,#CF7C3A)"><b>المصنِّف</b><small>مرض + درجة ثقة</small></div>
+      </div>
+      <figcaption>شكل (١): التعلّم الهرمي للسمات في CNN — من الحواف إلى أنماط الأعراض (التدفّق من اليمين إلى اليسار).</figcaption>
+    </figure>
     <h3 class="h">٥.٢ معماريات الدقة مقابل معماريات الجوال</h3>
-    <p>ثمة مفاضلة جوهرية بين الدقة وخفّة الوزن: نماذج مثل ResNet وDenseNet وEfficientNet الكبيرة تعطي دقة مرتفعة لكنها ثقيلة، بينما صُمِّمت MobileNetV2/V3 وEfficientNet-B0/B1 خصيصًا للأجهزة محدودة الموارد. وقد أظهرت نماذج هجينة خفيفة (نحو ٣٫٥ مليون معامل فقط) دقة تتجاوز ٩٩٪ على بيانات قياسية، ما يثبت إمكان الجمع بين الكفاءة والدقة.</p>
+    <p>ثمة مفاضلة جوهرية بين الدقة وخفّة الوزن: نماذج مثل ResNet وDenseNet وEfficientNet الكبيرة تعطي دقة مرتفعة لكنها ثقيلة، بينما صُمِّمت MobileNetV2/V3 وEfficientNet-B0/B1 خصيصًا للأجهزة محدودة الموارد. وقد أظهرت نماذج هجينة خفيفة (نحو ٣٫٥ مليون معامل فقط) دقة تتجاوز ٩٩٪ على بيانات قياسية<a class="cite" href="#r4">[٤]</a>، ما يثبت إمكان الجمع بين الكفاءة والدقة.</p>
     <h3 class="h">٥.٣ النشر على الجهاز (On-device)</h3>
-    <p>يُحوَّل النموذج إلى صيغة TensorFlow Lite ويُضغط (تكميم الأوزان) لتقليص حجمه وتسريع الاستدلال، فيعمل على الهاتف دون إنترنت — وهو شرط أساسي في المناطق الريفية ضعيفة التغطية. مثال عملي: نموذج مبني على MobileNetV2 بحجم نحو ١٣ ميجابايت مقابل نموذج مخصّص بحجم يفوق ١٨٠ ميجابايت، مع فارق طفيف في الدقة بين نسخة الخادم والنسخة المضغوطة (٩٦٪ مقابل ٩٤٪ في إحدى الدراسات).</p>
+    <p>يُحوَّل النموذج إلى صيغة TensorFlow Lite ويُضغط (تكميم الأوزان) لتقليص حجمه وتسريع الاستدلال، فيعمل على الهاتف دون إنترنت — شرط أساسي في المناطق الريفية<a class="cite" href="#r10">[١٠]</a>. مثال: نموذج MobileNetV2 بحجم ~١٣ ميجابايت مقابل نموذج مخصّص يفوق ١٨٠ ميجابايت، مع فارق طفيف في الدقة بين الخادم والنسخة المضغوطة (٩٦٪ مقابل ٩٤٪)<a class="cite" href="#r5">[٥]</a>.</p>
     <h3 class="h">٥.٤ من التشخيص إلى التوصية</h3>
-    <p>القيمة للمزارع لا تكتمل بمجرد اسم المرض؛ لذا يربط التطبيق التشخيص بإرشاد قابل للتنفيذ: سبب المرض، خطوات الوقاية، والمكافحة المقترحة وجرعاتها، مع إظهار «درجة الثقة» في التشخيص وحالة «غير مؤكد» تدفع المستخدم لإعادة التصوير أو استشارة خبير عند اللزوم.</p>
+    <p>القيمة للمزارع لا تكتمل بمجرد اسم المرض؛ لذا يربط التطبيق التشخيص بإرشاد قابل للتنفيذ: السبب، الوقاية، والمكافحة وجرعاتها، مع إظهار «درجة الثقة» وحالة «غير مؤكد» تدفع المستخدم لإعادة التصوير أو استشارة خبير.</p>
   </section>
 
   <section class="sec" id="s6">
     <div class="sec-head"><div class="sec-num">٦</div><h2 class="h">مراجعة موجزة للدراسات السابقة</h2></div>
-    <p>يلخّص الجدول أمثلة حديثة تُبرز مجتمعةً نضج تصنيف الأمراض وإمكان نشره على الجوال، مع استمرار تحدّي التعميم على الصور الواقعية (الأرقام كما وردت في مصادرها — انظر المراجع):</p>
+    <p>يلخّص الجدول أمثلة حديثة تُبرز نضج تصنيف الأمراض وإمكان نشره على الجوال، مع استمرار تحدّي التعميم على الصور الواقعية (الأرقام كما وردت في مصادرها):</p>
     <div class="tablewrap">
       <table>
         <thead><tr><th>النظام / المعمارية</th><th>النطاق والبيانات</th><th>النتيجة</th><th>المرجع</th></tr></thead>
         <tbody>
-          <tr><td>PlantoScope (CNN في تطبيق)</td><td>PlantVillage، ٣٨ صنفًا، تشخيص فوري من صورة ورقة</td><td>٩٦٪ (.h5) / ٩٤٪ (TFLite)</td><td class="c">[٥]</td></tr>
-          <tr><td>AgriSage (MobileNetV2 + CNN)</td><td>تطبيق أندرويد للمزارعين، استدلال على الجهاز عبر TFLite</td><td>نموذج ≈ ١٣٫٥ ميجابايت قابل للنشر</td><td class="c">[٦]</td></tr>
-          <tr><td>Mob-Res (هجين خفيف)</td><td>٣٫٥ مليون معامل فقط، مناسب للجوال</td><td>٩٩٫٥٪ (PlantVillage) / ٩٧٫٧٪ (Plant Disease Expert)</td><td class="c">[٤]</td></tr>
-          <tr><td>معيار نماذج خفيفة</td><td>١٠١ صنفًا عبر ٣٣ محصولًا (دمج عدة مجموعات)</td><td>EfficientNet-B1 ≈ ٩٤٫٧٪ (أفضل توازن)</td><td class="c">[٧]</td></tr>
-          <tr><td>نماذج معملية على PlantVillage</td><td>ظروف مخبرية مثالية، خلفية موحّدة</td><td>٩٨–٩٩٪ مخبريًا، مع تراجع حاد حقليًا</td><td class="c">[٨][٩]</td></tr>
+          <tr><td>PlantoScope (CNN في تطبيق)</td><td>PlantVillage، ٣٨ صنفًا، تشخيص فوري من صورة ورقة</td><td>٩٦٪ (.h5) / ٩٤٪ (TFLite)</td><td class="c"><a class="cite" href="#r5">[٥]</a></td></tr>
+          <tr><td>AgriSage (MobileNetV2 + CNN)</td><td>تطبيق أندرويد، استدلال على الجهاز عبر TFLite</td><td>نموذج ≈ ١٣٫٥ ميجابايت قابل للنشر</td><td class="c"><a class="cite" href="#r6">[٦]</a></td></tr>
+          <tr><td>Mob-Res (هجين خفيف)</td><td>٣٫٥ مليون معامل فقط، مناسب للجوال</td><td>٩٩٫٥٪ (PlantVillage) / ٩٧٫٧٪ (Plant Disease Expert)</td><td class="c"><a class="cite" href="#r4">[٤]</a></td></tr>
+          <tr><td>معيار نماذج خفيفة</td><td>١٠١ صنفًا عبر ٣٣ محصولًا</td><td>EfficientNet-B1 ≈ ٩٤٫٧٪ (أفضل توازن)</td><td class="c"><a class="cite" href="#r7">[٧]</a></td></tr>
+          <tr><td>نماذج معملية على PlantVillage</td><td>ظروف مخبرية مثالية، خلفية موحّدة</td><td>٩٨–٩٩٪ مخبريًا، مع تراجع حاد حقليًا</td><td class="c"><a class="cite" href="#r8">[٨]</a><a class="cite" href="#r9">[٩]</a></td></tr>
         </tbody>
       </table>
     </div>
@@ -316,56 +278,52 @@
 
   <section class="sec" id="s7">
     <div class="sec-head"><div class="sec-num">٧</div><h2 class="h">الفجوة البحثية</h2></div>
-    <p>الفجوة المحورية ليست في رفع الدقة المخبرية — فهي عالية أصلًا — بل في التعميم على الواقع: مجموعة PlantVillage الشائعة مكوّنة من صور مخبرية بخلفية موحّدة وإضاءة ثابتة، فيتعلّم النموذج أحيانًا إشارات زائفة لا تظهر في صور المزارع. وقد رُصدت فجوات تعميم تتراوح بين ١٣٫٥٪ وأكثر من ٦٧٪ عند الانتقال إلى بيئة جديدة دون إعادة ضبط على بياناتها.</p>
-    <div class="callout"><span class="lbl">الخلاصة التي تبرّر الفكرة:</span> النجاح الحقيقي لتطبيق المزارع يتطلّب تدريبًا/تقييمًا على صور حقلية واقعية (مثل PlantDoc/PlantWild أو بيانات محلية مجموعة)، لا على صور المختبر وحدها. هنا تكمن قيمة الفكرة: ليس في إثبات أن CNN يصنّف الأوراق، بل في إنتاج نموذج يصمد في يد المزارع فعليًا.</div>
+    <p>الفجوة المحورية ليست في رفع الدقة المخبرية — فهي عالية أصلًا — بل في التعميم على الواقع: مجموعة PlantVillage الشائعة مكوّنة من صور مخبرية بخلفية موحّدة وإضاءة ثابتة، فيتعلّم النموذج أحيانًا إشارات زائفة. وقد رُصدت فجوات تعميم تتراوح بين ١٣٫٥٪ وأكثر من ٦٧٪ عند الانتقال إلى بيئة جديدة دون إعادة ضبط<a class="cite" href="#r9">[٩]</a>.</p>
+    <div class="callout"><span class="lbl">الخلاصة التي تبرّر الفكرة:</span> النجاح الحقيقي لتطبيق المزارع يتطلّب تدريبًا/تقييمًا على صور حقلية واقعية (مثل PlantDoc/PlantWild أو بيانات محلية)، لا على صور المختبر وحدها. القيمة ليست في إثبات أن CNN يصنّف الأوراق، بل في إنتاج نموذج يصمد في يد المزارع فعليًا.</div>
   </section>
 
   <section class="sec" id="s8">
     <div class="sec-head"><div class="sec-num">٨</div><h2 class="h">حالات دراسية تطبيقية (ثلاث حالات)</h2></div>
-    <p>ثلاث حالات دراسية واقعية وأكاديمية، جميعها ضمن الموضوع نفسه (كشف أمراض المحاصيل من صور الأوراق بـ CNN)، اختيرت لتغطّي مراحل الفكرة الثلاث: إثبات المفهوم وبناء البيانات، ثم النشر الواقعي واسع النطاق، ثم النموذج الخفيف القابل للعمل على الجهاز.</p>
-
+    <p>ثلاث حالات واقعية وأكاديمية ضمن الموضوع نفسه، اختيرت لتغطّي مراحل الفكرة الثلاث: إثبات المفهوم وبناء البيانات، ثم النشر الواقعي واسع النطاق، ثم النموذج الخفيف القابل للعمل على الجهاز.</p>
     <div class="cases">
       <article class="case">
         <span class="badge">الحالة الأولى · إثبات المفهوم</span>
         <h3>مشروع PlantVillage — جدوى التشخيص من صورة ورقة</h3>
-        <p>تُعدّ دراسة Mohanty وزملائه (٢٠١٦) العمل المرجعي التأسيسي. استُخدمت مجموعة PlantVillage المفتوحة المكوّنة من ٥٤٬٣٠٦ صور لأوراق سليمة ومصابة تغطّي ١٤ نوعًا محصوليًا و٢٦ مرضًا، لتدريب شبكة CNN عميقة.</p>
+        <p>تُعدّ دراسة Mohanty وزملائه (٢٠١٦) العمل المرجعي التأسيسي. استُخدمت مجموعة PlantVillage المفتوحة (٥٤٬٣٠٦ صور، ١٤ محصولًا و٢٦ مرضًا) لتدريب شبكة CNN عميقة.</p>
         <ul class="list">
-          <li class="pt"><b>النتيجة:</b> دقة ٩٩٫٣٥٪ على مجموعة اختبار محجوزة، ما أثبت جدوى «التشخيص المُعان بالهاتف» على نطاق واسع.</li>
-          <li class="pt"><b>القيد المهم:</b> التُقطت الصور في ظروف محكومة (خلفية موحّدة)، فبرزت لاحقًا «فجوة المختبر/الحقل».</li>
-          <li class="pt"><b>الصلة بالفكرة:</b> يوفّر الأساس العلمي والبياناتي، ويؤكّد ضرورة تدعيم التدريب بصور حقلية واقعية. <span class="accent">[١]</span></li>
+          <li class="pt"><b>النتيجة:</b> دقة ٩٩٫٣٥٪ على مجموعة اختبار محجوزة، ما أثبت جدوى «التشخيص المُعان بالهاتف».</li>
+          <li class="pt"><b>القيد:</b> صور بظروف محكومة (خلفية موحّدة)، فبرزت لاحقًا «فجوة المختبر/الحقل».</li>
+          <li class="pt"><b>الصلة بالفكرة:</b> يوفّر الأساس العلمي والبياناتي، ويؤكّد ضرورة تدعيم التدريب بصور حقلية. <a class="cite" href="#r1">[١]</a></li>
         </ul>
       </article>
-
       <article class="case">
         <span class="badge">الحالة الثانية · نشر واقعي</span>
         <h3>تطبيق Plantix — النشر واسع النطاق</h3>
-        <p>تطبيق جوال طوّرته شركة PEAT الألمانية منذ ٢٠١٥؛ يلتقط فيه المزارع صورة للنبات المصاب فيتلقّى تشخيصًا وخيارات علاج بلغته خلال ثوانٍ، اعتمادًا على التعلّم العميق.</p>
+        <p>تطبيق جوال طوّرته شركة PEAT الألمانية منذ ٢٠١٥؛ يلتقط فيه المزارع صورة فيتلقّى تشخيصًا وخيارات علاج بلغته خلال ثوانٍ اعتمادًا على التعلّم العميق.</p>
         <ul class="list">
-          <li class="pt"><b>النطاق:</b> من أكثر تطبيقات التقنية الزراعية تنزيلًا عالميًا، أجاب عن أكثر من ١٠٠ مليون استفسار، ويغطّي عشرات المحاصيل ومئات الأعراض بدقة تقديرية تتجاوز ٩٠٪.</li>
-          <li class="pt"><b>دروس واقعية:</b> استبعاد الصور الملتقطة خارج الحقل عبر بيانات الموقع، وتدريب نموذج للتحقق من أن الصورة من داخل حقل فعلي، وتحسّن الدقة محليًا بمرور الوقت من صور المزارعين.</li>
-          <li class="pt"><b>الصلة بالفكرة:</b> النجاح لا يتوقف على دقة النموذج فحسب، بل على جودة البيانات والتوطين وربط التشخيص بتوصية موثوقة. <span class="accent">[٢][٣]</span></li>
+          <li class="pt"><b>النطاق:</b> من أكثر التطبيقات الزراعية تنزيلًا، أجاب عن أكثر من ١٠٠ مليون استفسار، بدقة تقديرية تتجاوز ٩٠٪.</li>
+          <li class="pt"><b>دروس واقعية:</b> استبعاد الصور خارج الحقل عبر بيانات الموقع، وتحسّن الدقة محليًا بمرور الوقت من صور المزارعين.</li>
+          <li class="pt"><b>الصلة بالفكرة:</b> النجاح يتوقف على جودة البيانات والتوطين وربط التشخيص بتوصية موثوقة. <a class="cite" href="#r2">[٢]</a><a class="cite" href="#r3">[٣]</a></li>
         </ul>
       </article>
-
       <article class="case">
         <span class="badge">الحالة الثالثة · نموذج خفيف</span>
         <h3>نموذج Mob-Res — تشخيص يعمل على الجهاز</h3>
-        <p>دراسة حديثة (٢٠٢٥) قدّمت معمارية هجينة باسم Mob-Res تجمع MobileNetV2 مع كتل البواقي (Residual)، بحجم لا يتجاوز ٣٫٥١ مليون معامل، مصمّمة للأجهزة الجوّالة والطرفية مع قابلية للتفسير.</p>
+        <p>دراسة (٢٠٢٥) قدّمت معمارية هجينة Mob-Res تجمع MobileNetV2 مع كتل البواقي، بحجم ٣٫٥١ مليون معامل فقط، مع قابلية للتفسير.</p>
         <ul class="list">
           <li class="pt"><b>النتيجة:</b> ٩٧٫٧٣٪ على Plant Disease Expert (١٩٩٬٦٤٤ صورة، ٥٨ صنفًا) و٩٩٫٤٧٪ على PlantVillage.</li>
-          <li class="pt"><b>الصلة بالفكرة:</b> يمكن الاحتفاظ بدقة عالية مع حجم صغير يكفي للاستدلال على الجهاز دون إنترنت — جوهر هدف «نشر النموذج في تطبيق جوال». <span class="accent">[٤]</span></li>
+          <li class="pt"><b>الصلة بالفكرة:</b> دقة عالية مع حجم صغير يكفي للاستدلال على الجهاز دون إنترنت — جوهر هدف التطبيق الجوال. <a class="cite" href="#r4">[٤]</a></li>
         </ul>
       </article>
     </div>
-
     <p>مقارنة موجزة بين الحالات الثلاث:</p>
     <div class="tablewrap">
       <table>
-        <thead><tr><th>الحالة</th><th>التركيز</th><th>النتيجة الأبرز</th><th>الدرس المستفاد للفكرة</th></tr></thead>
+        <thead><tr><th>الحالة</th><th>التركيز</th><th>النتيجة الأبرز</th><th>الدرس المستفاد</th></tr></thead>
         <tbody>
           <tr><td><b>PlantVillage</b> (٢٠١٦)</td><td>إثبات المفهوم وبناء البيانات</td><td>٩٩٫٣٥٪ على ١٤ محصولًا و٢٦ مرضًا</td><td>الأساس العلمي + ضرورة الصور الحقلية</td></tr>
-          <tr><td><b>Plantix</b></td><td>نشر واقعي واسع النطاق</td><td>أكثر من ١٠٠ مليون استفسار، دقة ~٩٠٪+</td><td>جودة البيانات والتوطين وربط التوصية</td></tr>
-          <tr><td><b>Mob-Res</b> (٢٠٢٥)</td><td>نموذج خفيف على الجهاز</td><td>٩٩٫٥٪ بـ ٣٫٥ مليون معامل فقط</td><td>دقة عالية مع عمل دون إنترنت</td></tr>
+          <tr><td><b>Plantix</b></td><td>نشر واقعي واسع النطاق</td><td>أكثر من ١٠٠ مليون استفسار، ~٩٠٪+</td><td>جودة البيانات والتوطين وربط التوصية</td></tr>
+          <tr><td><b>Mob-Res</b> (٢٠٢٥)</td><td>نموذج خفيف على الجهاز</td><td>٩٩٫٥٪ بـ ٣٫٥ مليون معامل</td><td>دقة عالية مع عمل دون إنترنت</td></tr>
         </tbody>
       </table>
     </div>
@@ -373,14 +331,70 @@
 
   <section class="sec" id="s9">
     <div class="sec-head"><div class="sec-num">٩</div><h2 class="h">المنهجية المقترحة</h2></div>
-    <h3 class="h">٩.١ إعداد البيانات</h3>
-    <p>الجمع بين مجموعات بيانات مفتوحة (PlantVillage للتنوّع، وPlantDoc/PlantWild للواقعية الحقلية) وصور محلية ملتقطة بالهاتف في ظروف متنوعة. توسيم الصور بإشراف خبير، وموازنة الفئات، وتوسيع البيانات (تدوير/انعكاس/تغيير إضاءة) لمحاكاة الواقع.</p>
-    <h3 class="h">٩.٢ التدريب والضبط</h3>
-    <p>التعلّم المنقول من نماذج مُدرَّبة مسبقًا، وتقسيم البيانات تدريب/تحقق/اختبار مع فصل المصادر (تقييم على صور لم يرَ النموذج بيئتها) لقياس تعميم واقعي. مقارنة عدة معماريات للموازنة بين الدقة والحجم.</p>
-    <h3 class="h">٩.٣ التحسين للجوال</h3>
-    <p>اختيار نسخة خفيفة (MobileNet/EfficientNet-Lite)، ثم التحويل إلى TFLite مع التكميم (Quantization) وقياس أثر ذلك على الدقة وحجم النموذج وزمن الاستدلال على أجهزة فعلية.</p>
-    <h3 class="h">٩.٤ بناء التطبيق والتقييم الميداني</h3>
-    <p>دمج النموذج في تطبيق جوال يعمل دون اتصال: التقاط صورة ← تشخيص فوري ← اسم المرض + درجة الثقة + توصية. ثم اختبار قابلية الاستخدام مع مزارعين حقيقيين وجمع ملاحظاتهم لتحسين الواجهة والموثوقية.</p>
+
+    <figure class="fig">
+      <div class="pipe">
+        <div class="step"><div class="si">١</div><b>التقاط الصورة</b><small>هاتف في الحقل</small></div>
+        <span class="arrow">←</span>
+        <div class="step"><div class="si">٢</div><b>جمع وتوسيم</b><small>إشراف خبير</small></div>
+        <span class="arrow">←</span>
+        <div class="step"><div class="si">٣</div><b>توسيع البيانات</b><small>هندسي وضوئي</small></div>
+        <span class="arrow">←</span>
+        <div class="step"><div class="si">٤</div><b>تدريب CNN</b><small>نقل تعلّم</small></div>
+        <span class="arrow">←</span>
+        <div class="step"><div class="si">٥</div><b>تقييم</b><small>F1 · Recall</small></div>
+        <span class="arrow">←</span>
+        <div class="step"><div class="si">٦</div><b>تحويل وتكميم</b><small>TFLite</small></div>
+        <span class="arrow">←</span>
+        <div class="step alt"><div class="si">٧</div><b>تطبيق جوال</b><small>دون إنترنت</small></div>
+      </div>
+      <figcaption>شكل (٢): خط الأنابيب من الحقل إلى الجوال (التدفّق من اليمين إلى اليسار).</figcaption>
+    </figure>
+
+    <h3 class="h">٩.١ إعداد البيانات ومنهجية الجمع المحلي</h3>
+    <p>الجمع بين مجموعات مفتوحة (PlantVillage للتنوّع، وPlantDoc/PlantWild للواقعية الحقلية) وصور محلية ملتقطة بالهاتف. أما <strong>منهجية الجمع المحلي المقترحة</strong> فكالآتي:</p>
+    <ul class="list">
+      <li><b>التصوير:</b> هواتف ذكية في الحقل عبر مواسم وأوقات نهار مختلفة، بزوايا وخلفيات طبيعية متنوّعة (لا خلفية موحّدة) لتقليل فجوة المختبر/الحقل.</li>
+      <li><b>الحجم المتوقع:</b> هدف لا يقل عن ٢٠٠–٥٠٠ صورة لكل فئة (محصول×مرض، بالإضافة إلى السليم)، بإجمالي مستهدف ~٥٬٠٠٠–١٠٬٠٠٠ صورة محلية في المرحلة الأولى (٣–٥ محاصيل و٨–١٢ فئة)، قابل للتوسّع لاحقًا.</li>
+      <li><b>التوسيم:</b> توسيم مزدوج بإشراف خبير أمراض نباتية، مع قياس اتساق المُوسِّمين (inter-annotator agreement) وحلّ الاختلافات، وتأكيد معملي عند الالتباس.</li>
+      <li><b>البيانات الوصفية:</b> تسجيل المحصول والتاريخ والظروف وموقع تقريبي فقط (حفاظًا على الخصوصية — انظر القسم ١٣).</li>
+      <li><b>التقسيم:</b> فصل المصادر/المواقع بين التدريب والاختبار لقياس تعميم واقعي.</li>
+    </ul>
+
+    <h3 class="h">٩.٢ توسيع البيانات (Augmentation) لصور الأوراق</h3>
+    <ul class="list">
+      <li><b>هندسي:</b> تدوير (±٣٠°)، انعكاس أفقي/رأسي، قص وتكبير عشوائي، إزاحة، وميل بسيط — لمحاكاة اختلاف وضع الورقة والكاميرا.</li>
+      <li><b>ضوئي:</b> تغيير السطوع والتباين والتشبّع واختلاف توازن الأبيض لمحاكاة إضاءة الحقل والظلال وأوقات النهار.</li>
+      <li><b>متقدّم:</b> Random Erasing/Cutout، وMixup/CutMix بحذر، وإضافة خلفيات عشوائية لرقع الورقة لكسر اعتماد النموذج على الخلفية.</li>
+      <li><span class="accent">تحذير منهجي:</span> تجنّب التشويه اللوني المفرط الذي قد يطمس إشارات المرض (الاصفرار، لون الصدأ)؛ فبعض الأعراض لونية بطبيعتها، لذا يُضبط نطاق الـ jitter بحيث لا يغيّر دلالة العرض.</li>
+    </ul>
+
+    <h3 class="h">٩.٣ التدريب والضبط والمعاملات الفائقة</h3>
+    <p>التعلّم المنقول على مرحلتين: تجميد العمود الفقري المُدرَّب مسبقًا أولًا، ثم إذابة الطبقات العليا للضبط الدقيق. الإعداد المقترح كنقطة انطلاق:</p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>المعامل الفائق</th><th>القيمة المقترحة (نقطة انطلاق)</th></tr></thead>
+        <tbody>
+          <tr><td>حجم الإدخال</td><td>٢٢٤ × ٢٢٤ بكسل</td></tr>
+          <tr><td>المُحسِّن (Optimizer)</td><td>Adam / AdamW</td></tr>
+          <tr><td>معدّل التعلّم (Learning rate)</td><td>1e-3 للرأس، ثم 1e-4 للضبط الدقيق (مع جدولة cosine/step decay)</td></tr>
+          <tr><td>حجم الدفعة (Batch size)</td><td>٣٢</td></tr>
+          <tr><td>عدد الحقب (Epochs)</td><td>٣٠–٥٠ مع الإيقاف المبكر (Early stopping على خسارة التحقق)</td></tr>
+          <tr><td>التنظيم (Regularization)</td><td>Dropout (٠٫٢–٠٫٥)، Weight decay، وLabel smoothing اختياري</td></tr>
+          <tr><td>تقسيم البيانات</td><td>٧٠٪ تدريب / ١٥٪ تحقق / ١٥٪ اختبار (طبقي + فصل المصادر)</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="margin-top:14px"><strong>معالجة اختلال توازن الفئات (Class Imbalance):</strong> غالبًا ما تكون فئات الأمراض أقل عددًا من السليم، فتُعالَج بـ:</p>
+    <ul class="list">
+      <li>أوزان للفئات في دالة الخسارة (Class weights) أو دالة <b>Focal Loss</b> للتركيز على الأمثلة الصعبة/النادرة.</li>
+      <li>إعادة معاينة: زيادة عيّنات الأقلية (Oversampling) أو تقليل الأغلبية، وتوسيع بيانات أكثف للفئات النادرة.</li>
+      <li>تقسيم طبقي (Stratified) للحفاظ على نسب الفئات، وضبط عتبة القرار لكل فئة.</li>
+      <li>التقييم بـ <b>macro-F1</b> ومصفوفة الالتباس بدل الدقة الإجمالية المضلِّلة.</li>
+    </ul>
+
+    <h3 class="h">٩.٤ التحسين للجوال وبناء التطبيق</h3>
+    <p>اختيار نسخة خفيفة (MobileNet/EfficientNet-Lite)، ثم التحويل إلى TFLite مع التكميم (Quantization) وقياس أثره على الدقة والحجم وزمن الاستدلال. ودمج النموذج في تطبيق يعمل دون اتصال: التقاط صورة ← تشخيص فوري + درجة ثقة + توصية، ثم اختبار قابلية الاستخدام مع مزارعين حقيقيين.</p>
   </section>
 
   <section class="sec" id="s10">
@@ -390,12 +404,12 @@
       <table>
         <thead><tr><th>المقياس</th><th>ما الذي يقيسه</th><th>لماذا يهمّ هنا</th></tr></thead>
         <tbody>
-          <tr><td><b>Precision</b> (الدقة)</td><td>نسبة التنبؤات بالمرض التي كانت صحيحة</td><td>يقلّل التوصيات الخاطئة بالرشّ غير الضروري</td></tr>
-          <tr><td><b>Recall</b> (الحساسية)</td><td>نسبة الإصابات الفعلية التي كُشفت</td><td>الأهم: تفويت إصابة مبكرة يعني خسارة المحصول</td></tr>
+          <tr><td><b>Precision</b></td><td>نسبة التنبؤات بالمرض التي كانت صحيحة</td><td>يقلّل التوصيات الخاطئة بالرشّ غير الضروري</td></tr>
+          <tr><td><b>Recall</b></td><td>نسبة الإصابات الفعلية التي كُشفت</td><td>الأهم: تفويت إصابة مبكرة يعني خسارة المحصول</td></tr>
           <tr><td><b>F1-Score</b></td><td>التوازن بين Precision وRecall</td><td>المقياس الأنسب مع اختلال الفئات</td></tr>
           <tr><td>مصفوفة الالتباس</td><td>أي الأمراض يخلط النموذج بينها</td><td>تكشف الأمراض المتشابهة الأعراض</td></tr>
-          <tr><td>حجم النموذج</td><td>حجم ملف TFLite بالميجابايت</td><td>يحدّد صلاحيته للهواتف محدودة التخزين</td></tr>
-          <tr><td>زمن الاستدلال</td><td>الزمن من التقاط الصورة حتى ظهور النتيجة</td><td>يحدّد سلاسة التجربة على الجهاز دون إنترنت</td></tr>
+          <tr><td>حجم النموذج</td><td>حجم ملف TFLite بالميجابايت</td><td>صلاحيته للهواتف محدودة التخزين</td></tr>
+          <tr><td>زمن الاستدلال</td><td>الزمن من الالتقاط حتى النتيجة</td><td>سلاسة التجربة على الجهاز دون إنترنت</td></tr>
         </tbody>
       </table>
     </div>
@@ -407,7 +421,7 @@
       <li>نموذج CNN مُدرَّب ومُقيَّم بدقة عالية ومقاييس واضحة على بيانات مستقلة.</li>
       <li>نسخة خفيفة بصيغة TFLite بحجم وزمن استدلال مناسبين للهاتف.</li>
       <li>تطبيق جوال يعمل دون اتصال: صورة ← تشخيص + درجة ثقة + توصية عملية.</li>
-      <li>مجموعة بيانات (سيّما الصور المحلية الواقعية) قابلة لإعادة الاستخدام.</li>
+      <li>مجموعة بيانات محلية واقعية قابلة لإعادة الاستخدام.</li>
       <li>تقييم ميداني لقابلية الاستخدام يمهّد لإطلاق أوسع.</li>
     </ul>
   </section>
@@ -418,20 +432,47 @@
       <table>
         <thead><tr><th>التحدّي</th><th>سبيل المعالجة</th></tr></thead>
         <tbody>
-          <tr><td>الفجوة بين صور المختبر وصور المزارع الواقعية</td><td>التدريب على بيانات حقلية (PlantDoc/PlantWild) + صور محلية وتقييم بفصل المصادر</td></tr>
-          <tr><td>اختلال توازن الفئات</td><td>إعادة معاينة، أوزان خسارة، والتقييم بـ F1 وRecall لا الدقة فقط</td></tr>
-          <tr><td>خسارة الدقة عند ضغط/تكميم النموذج للجوال</td><td>تكميم مدرك للتدريب، ومقارنة دقة الخادم بالنسخة المضغوطة لقبول المقايضة</td></tr>
-          <tr><td>قيود الهاتف (تخزين، معالجة، دون إنترنت)</td><td>معماريات خفيفة + استدلال محلي على الجهاز دون الاعتماد على الشبكة</td></tr>
-          <tr><td>ثقة المزارع وفهمه للنتيجة</td><td>إظهار درجة الثقة وحالة «غير مؤكد»، وربط التشخيص بتوصية واضحة ومبسّطة</td></tr>
-          <tr><td>جودة الصور التي يلتقطها المستخدم</td><td>إرشادات تصوير داخل التطبيق وكشف الصور غير الصالحة وطلب إعادة الالتقاط</td></tr>
-          <tr><td>التعميم على أمراض/محاصيل/مناطق جديدة</td><td>توسيع البيانات تدريجيًا وتحديث النموذج دوريًا بناءً على الاستخدام الفعلي</td></tr>
+          <tr><td>الفجوة بين صور المختبر وصور المزارع الواقعية</td><td>التدريب على بيانات حقلية + صور محلية وتقييم بفصل المصادر</td></tr>
+          <tr><td>اختلال توازن الفئات</td><td>أوزان خسارة/Focal Loss، إعادة معاينة، والتقييم بـ F1 وRecall</td></tr>
+          <tr><td>خسارة الدقة عند الضغط/التكميم</td><td>تكميم مُدرك للتدريب، ومقارنة دقة الخادم بالنسخة المضغوطة</td></tr>
+          <tr><td>قيود الهاتف (تخزين/معالجة/دون إنترنت)</td><td>معماريات خفيفة + استدلال محلي على الجهاز</td></tr>
+          <tr><td>ثقة المزارع وفهمه للنتيجة</td><td>إظهار درجة الثقة وحالة «غير مؤكد»، وربطها بتوصية مبسّطة</td></tr>
+          <tr><td>جودة صور المستخدم</td><td>إرشادات تصوير داخل التطبيق وكشف الصور غير الصالحة</td></tr>
         </tbody>
       </table>
     </div>
   </section>
 
   <section class="sec" id="s13">
-    <div class="sec-head"><div class="sec-num">١٣</div><h2 class="h">الخطة الزمنية المقترحة</h2></div>
+    <div class="sec-head"><div class="sec-num">١٣</div><h2 class="h">الاعتبارات الأخلاقية وخصوصية بيانات المزارعين</h2></div>
+    <p>جمع بيانات المزارعين وصورهم يثير قضايا حقيقية تتعلّق بالملكية والموافقة والخصوصية والإنصاف، خصوصًا في بيئات تضعف فيها أطر حماية البيانات. ويُقترح الالتزام بالمبادئ التالية:</p>
+    <ul class="list">
+      <li><b>الموافقة المستنيرة:</b> موافقة صريحة قبل الجمع أو المعالجة أو المشاركة، مع خيار الانسحاب وحذف البيانات عند الطلب، وتقليل ما يُجمَع إلى الضروري.<a class="cite" href="#r12">[١٢]</a></li>
+      <li><b>الشفافية:</b> اتفاقية ترخيص بيانات مبسّطة بلغة المزارع بعيدًا عن المصطلحات القانونية المعقّدة.<a class="cite" href="#r12">[١٢]</a></li>
+      <li><b>الخصوصية بالتصميم:</b> تجنّب تخزين موقع دقيق (موقع تقريبي/إخفاء هوية)، وإمكان اعتماد تقنيات حافظة للخصوصية عند تجميع البيانات للبحث.</li>
+      <li><b>عدالة البيانات وتقاسم المنافع:</b> في كثير من الدول تضعف أطر الخصوصية، ما يعرّض صغار المزارعين للمراقبة وسلب القيمة؛ لذا يُوصى بنماذج حوكمة تحترم حقوق المزارع وتشركه في القرار (تعاونيات/صناديق بيانات).<a class="cite" href="#r13">[١٣]</a></li>
+      <li><b>الإنصاف وتجنّب التحيز:</b> ضمان تمثيل متنوّع (محاصيل/مناطق/فئات) حتى لا يُقصى مزارعون بسبب بيانات منحازة.</li>
+    </ul>
+  </section>
+
+  <section class="sec" id="s14">
+    <div class="sec-head"><div class="sec-num">١٤</div><h2 class="h">حدود الدراسة ومناقشة نقدية</h2></div>
+    <h3 class="h">١٤.١ نقد مجموعة PlantVillage والنتائج المخبرية</h3>
+    <p>رغم شهرة PlantVillage فهي تضم ٥٤٬٣٠٦ صور فقط في ظروف مخبرية (ورقة مفردة، خلفية موحّدة)، وتقتصر على ٣٨ فئة و١٤ محصولًا بتنوّع جغرافي وصنفي محدود. لذا فالدقة العالية عليها (٩٨–٩٩٪) لا تعكس الأداء الواقعي، وقد تتعلّم النماذج إشارات زائفة من الخلفية لا من المرض نفسه.</p>
+    <h3 class="h">١٤.٢ دروس من النتائج «السلبية»</h3>
+    <p>الاختبارات عبر المجموعات تُظهر تراجعًا حادًا في التعميم (فجوة ١٣٫٥–٦٧٪)، بل هبطت دقة سمات مُسبقة التدريب من ImageNet إلى نحو ٢٥٫٨٪ في إعداد الاختبار الخطي لدى إحدى المعماريات، وتفاوت أداء ResNet على بيانات جديدة — وهي نتائج سلبية مفيدة تذكّر بأن الأرقام المخبرية مضلِّلة ما لم تُختبَر حقليًا.<a class="cite" href="#r8">[٨]</a><a class="cite" href="#r9">[٩]</a></p>
+    <h3 class="h">١٤.٣ حالات الفشل المحتملة وحدود التشخيص البصري</h3>
+    <ul class="list">
+      <li>الأمراض النادرة قليلة التمثيل، والأعراض المبكرة الدقيقة أو غير النمطية، والعدوى المركّبة.</li>
+      <li>الالتباس بين المرض ونقص التغذية أو إجهاد بيئي يشبهه بصريًا.</li>
+      <li>بعض الأمراض (فيروسية/بكتيرية) تتطلّب تأكيدًا معمليًا (PCR/ELISA)؛ فالتشخيص البصري مؤشّر لا حكم قاطع، ويجب أن يوسم التطبيق هذه الحالات بـ«يلزم فحص معملي».</li>
+    </ul>
+    <h3 class="h">١٤.٤ تحيز البيانات والآثار الاجتماعية</h3>
+    <p>نموذج مُدرَّب أساسًا على بيانات مزارع كبيرة قد لا يصلح لصغار المزارعين أو لمناطق مختلفة، ما يكرّس تحيزًا بنيويًا.<a class="cite" href="#r13">[١٣]</a> كما قد يؤدي الاعتماد المفرط على التطبيق إلى تقليل استشارة الخبراء وإضعاف المهارات؛ لذا يُقدَّم التطبيق بوصفه <strong>أداة دعم قرار مكمّلة لا بديلًا عن الخبير</strong>، مع تحديد واضح للمسؤولية عند الخطأ في التوصية.</p>
+  </section>
+
+  <section class="sec" id="s15">
+    <div class="sec-head"><div class="sec-num">١٥</div><h2 class="h">الخطة الزمنية المقترحة</h2></div>
     <p>خطة تقديرية لنحو ١٠–١٢ شهرًا:</p>
     <div class="tablewrap">
       <table>
@@ -448,27 +489,81 @@
     </div>
   </section>
 
-  <section class="sec" id="s14">
-    <div class="sec-head"><div class="sec-num">١٤</div><h2 class="h">الخاتمة</h2></div>
-    <p>تجمع هذه الفكرة بين أساس علمي ناضج (نجاح CNN في تصنيف أمراض النبات) ومسار تطبيقي واضح (تطبيق جوال في يد المزارع). نقطة النجاح الحاسمة هي تجاوز فجوة المختبر/الحقل ببيانات واقعية، وموازنة الدقة مع خفّة الوزن لتعمل بكفاءة على الهاتف دون إنترنت، ثم ربط التشخيص بتوصية يفهمها المزارع ويثق بها. وبهذا تتحوّل الفكرة من نموذج بحثي إلى أداة عملية ذات أثر مباشر.</p>
+  <section class="sec" id="s16">
+    <div class="sec-head"><div class="sec-num">١٦</div><h2 class="h">الخاتمة</h2></div>
+    <p>تجمع هذه الفكرة بين أساس علمي ناضج (نجاح CNN في تصنيف أمراض النبات) ومسار تطبيقي واضح (تطبيق جوال في يد المزارع). نقطة النجاح الحاسمة هي تجاوز فجوة المختبر/الحقل ببيانات واقعية، وموازنة الدقة مع خفّة الوزن، وربط التشخيص بتوصية موثوقة — مع وعي نقدي بحدود التشخيص البصري والاعتبارات الأخلاقية. وبهذا تتحوّل الفكرة من نموذج بحثي إلى أداة دعم قرار مسؤولة وذات أثر مباشر.</p>
   </section>
 
-  <section class="sec" id="s15">
-    <div class="sec-head"><div class="sec-num">١٥</div><h2 class="h">المراجع</h2></div>
-    <p style="color:var(--ink-soft);font-size:14px">المصادر التي استُند إليها (٢٠١٦–٢٠٢٦):</p>
+  <section class="sec" id="s17">
+    <div class="sec-head"><div class="sec-num">١٧</div><h2 class="h">المراجع</h2></div>
+    <p style="color:var(--ink-soft);font-size:14px">المصادر التي استُند إليها (٢٠١٦–٢٠٢٦) — اضغط على عنوان أي مرجع للانتقال إلى مصدره:</p>
     <ol class="ref-list">
-      <li>Mohanty, Hughes &amp; Salathé — Using Deep Learning for Image-Based Plant Disease Detection (PlantVillage; 54,306 images; 14 crops, 26 diseases; 99.35% acc.), Frontiers in Plant Science / PMC (2016).</li>
-      <li>Plant disease diagnosis using AI: a case study on Plantix, CGIAR Platform for Big Data in Agriculture (2020).</li>
-      <li>Detecting and managing crop pests and diseases with AI: Insights from Plantix, GSMA Mobile for Development (2025).</li>
-      <li>A lightweight and explainable CNN model (Mob-Res: MobileNetV2 + residual; 3.51M params; 99.47% PlantVillage / 97.73% Plant Disease Expert), Scientific Reports (2025).</li>
-      <li>PlantoScope: A CNN-Based Mobile App for Plant Disease Diagnosis (.h5 96% / .tflite 94%), IJCSIS (2025).</li>
-      <li>AgriSage: Android Application for Empowering Farmers (MobileNetV2 + CNN; TFLite on-device), Engineering Reports / Wiley (2025).</li>
-      <li>Mobile-Friendly Deep Learning for Plant Disease Detection: Lightweight CNN Benchmark across 101 Classes / 33 Crops (EfficientNet-B1 ≈ 94.7%), arXiv (2025).</li>
-      <li>Assessing domain-specific models for plant leaf disease classification: transfer-learning benchmark on open datasets, Scientific Reports (2025).</li>
-      <li>LeafNet: A Large-Scale Dataset and Benchmark for Plant Diseases (generalization gap 13.5–67%), arXiv (2026).</li>
-      <li>Leveraging deep learning for plant disease and pest detection: a review (edge / on-device CNN), Frontiers in Plant Science (2025).</li>
-      <li>A deep learning-based framework for large-scale plant disease detection (DenseNet161 / EfficientNet-B0), Journal of Big Data (2025).</li>
+      <li id="r1"><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5032846/" target="_blank" rel="noopener">Mohanty, Hughes &amp; Salathé — Using Deep Learning for Image-Based Plant Disease Detection</a> (PlantVillage; 54,306 images; 14 crops, 26 diseases; 99.35% acc.), Frontiers in Plant Science / PMC (2016).</li>
+      <li id="r2"><a href="https://bigdata.cgiar.org/digital-intervention/plant-disease-diagnosis-using-artificial-intelligence-a-case-study-on-plantix/" target="_blank" rel="noopener">Plant disease diagnosis using AI: a case study on Plantix</a>, CGIAR Platform for Big Data in Agriculture (2020).</li>
+      <li id="r3"><a href="https://www.gsma.com/solutions-and-impact/connectivity-for-good/mobile-for-development/programme/agritech/detecting-and-managing-crop-pests-and-diseases-with-ai-insights-from-plantix/" target="_blank" rel="noopener">Detecting and managing crop pests and diseases with AI: Insights from Plantix</a>, GSMA Mobile for Development (2025).</li>
+      <li id="r4"><a href="https://www.nature.com/articles/s41598-025-94083-1" target="_blank" rel="noopener">A lightweight and explainable CNN model (Mob-Res)</a> — MobileNetV2 + residual; 3.51M params; 99.47% PlantVillage / 97.73% Plant Disease Expert, Scientific Reports (2025).</li>
+      <li id="r5">PlantoScope: A CNN-Based Mobile App for Plant Disease Diagnosis (.h5 96% / .tflite 94%), IJCSIS (2025).</li>
+      <li id="r6"><a href="https://onlinelibrary.wiley.com/doi/full/10.1002/eng2.70342" target="_blank" rel="noopener">AgriSage: Android Application for Empowering Farmers</a> (MobileNetV2 + CNN; TFLite on-device), Engineering Reports / Wiley (2025).</li>
+      <li id="r7"><a href="https://arxiv.org/pdf/2508.10817" target="_blank" rel="noopener">Mobile-Friendly Deep Learning for Plant Disease Detection</a> — Lightweight CNN Benchmark across 101 classes / 33 crops (EfficientNet-B1 ≈ 94.7%), arXiv (2025).</li>
+      <li id="r8"><a href="https://www.nature.com/articles/s41598-025-03235-w" target="_blank" rel="noopener">Assessing domain-specific models for plant leaf disease classification</a> — transfer-learning benchmark on open datasets, Scientific Reports (2025).</li>
+      <li id="r9"><a href="https://arxiv.org/html/2602.13662v2" target="_blank" rel="noopener">LeafNet: A Large-Scale Dataset and Benchmark for Plant Diseases</a> (generalization gap 13.5–67%), arXiv (2026).</li>
+      <li id="r10"><a href="https://www.frontiersin.org/journals/plant-science/articles/10.3389/fpls.2025.1538163/full" target="_blank" rel="noopener">Leveraging deep learning for plant disease and pest detection: a review</a> (edge / on-device CNN), Frontiers in Plant Science (2025).</li>
+      <li id="r11"><a href="https://link.springer.com/article/10.1186/s40537-025-01265-9" target="_blank" rel="noopener">A deep learning-based framework for large-scale plant disease detection</a> (DenseNet161 / EfficientNet-B0), Journal of Big Data (2025).</li>
+      <li id="r12"><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9372537/" target="_blank" rel="noopener">Recommendations for ethical and responsible use of AI in digital agriculture</a> (consent, transparency, privacy, bias), PMC (2022).</li>
+      <li id="r13"><a href="https://www.ifpri.org/blog/beyond-the-algorithm-the-need-for-farmer-participation-and-data-justice-in-digital-agricultural-technology/" target="_blank" rel="noopener">Beyond the algorithm: farmer participation and data justice in digital agriculture</a>, IFPRI (2025).</li>
     </ol>
+  </section>
+  <section class="sec" id="s18">
+    <div class="sec-head"><div class="sec-num">١٨</div><h2 class="h">سجلّ هندسة الموجهات (Prompt Engineering Log)</h2></div>
+    <p>يوثّق هذا القسم كيف صِيغت الموجهات (Prompts) وطوّرت تكراريًا للوصول إلى تقرير دقيق وملتزم بالموضوع، والتقنيات المتّبعة، والأسئلة الموجِّهة للبحث.</p>
+
+    <h3 class="h">١٨.١ مبادئ صياغة الموجهات</h3>
+    <ul class="list">
+      <li><strong>تحديد السياق والدور:</strong> تثبيت المجال (الزراعة الذكية) والزاوية (CNN لكشف أمراض المحاصيل من صور الأوراق) في كل موجِّه لمنع الانحراف عن الموضوع.</li>
+      <li><strong>تحديد البنية المطلوبة:</strong> طلب أقسام محددة (مشكلة، منهجية، مقاييس، حالات دراسية، مراجع) لإنتاج مخرَج منظّم.</li>
+      <li><strong>التأسيس على الأدلّة:</strong> اشتراط الاستناد إلى مراجع علمية حديثة وأرقام دقيقة بدل التعميم.</li>
+      <li><strong>التحسين التكراري بالتغذية الراجعة:</strong> إعادة توجيه النموذج بناءً على ملاحظات المُقيّم لسدّ الثغرات.</li>
+      <li><strong>تحديد القيود التقنية:</strong> فرض اتجاه RTL، والتوافق مع GitHub Pages، وملف مكتفٍ بذاته.</li>
+    </ul>
+
+    <h3 class="h">١٨.٢ سجلّ الموجهات حسب المراحل</h3>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>المرحلة</th><th>جوهر الموجِّه</th><th>الهدف</th><th>التقنية</th></tr></thead>
+        <tbody>
+          <tr><td>تحديد الفكرة</td><td>إنشاء تقرير عن الفكرة المعتمدة مع تحديد المجال والزاوية والتبرير والخطوات</td><td>توليد هيكل أوّلي</td><td><span class="tech">سياق + دور</span></td></tr>
+          <tr><td>التعميق</td><td>توسيع التقرير إلى أقسام شاملة (مشكلة، إطار تقني، منهجية، مقاييس، مخاطر، خطة)</td><td>مخرَج منظّم متكامل</td><td><span class="tech">تحديد البنية</span></td></tr>
+          <tr><td>التصحيح الأول</td><td>الالتزام الحصري بالموضوع المعتمد + إضافة ٣ حالات دراسية</td><td>سدّ ثغرتي التطابق والحالات</td><td><span class="tech">تحسين تكراري</span></td></tr>
+          <tr><td>النشر</td><td>تحويل التقرير إلى صفحة HTML للنشر على GitHub Pages بتنسيق RTL</td><td>مخرَج قابل للنشر</td><td><span class="tech">قيود تقنية</span></td></tr>
+          <tr><td>التصحيح الثاني</td><td>معالجة ملاحظات التقييم: تفاصيل تقنية، أخلاقيات، نتائج سلبية، رسوم، روابط، نقد</td><td>رفع العمق والاكتمال</td><td><span class="tech">تحسين تكراري موجَّه</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="note"><span class="lbl">ملاحظة:</span> يُنصح بإرفاق نصوص الموجهات الفعلية كما كُتبت (لقطات/نسخ) إلى جانب هذا الملخّص، لأن المُقيّم قد يطلب الصيغة الحرفية للموجهات.</div>
+
+    <h3 class="h">١٨.٣ الأسئلة الموجِّهة للبحث</h3>
+    <p>تطوّرت الأسئلة من العام إلى المحدّد، وأُضيفت أسئلة جديدة لتغطية أبعاد كانت ناقصة (التكلفة، التوسّع، مؤشرات النجاح):</p>
+    <div class="pcard"><div class="q">كيف يمكن لنماذج CNN تحسين دقة تشخيص أمراض النبات مبكرًا من صور ورقية، ونشرها بكفاءة على الجوال؟</div><div class="why">السؤال الرئيسي الجامع بين الدقة والنشر العملي.</div></div>
+    <div class="pcard"><div class="q">أيُّ المعماريات يوازن بين الدقة وخفّة الوزن للهاتف؟ وكم تخسر الدقة عند التكميم؟</div><div class="why">يربط الاختيار المعماري بقيود الجهاز.</div></div>
+    <div class="pcard"><div class="q">كيف يصمد النموذج أمام صور المزارعين الواقعية؟ وكيف يُترجَم التشخيص إلى توصية موثوقة؟</div><div class="why">يعالج فجوة المختبر/الحقل والبعد البشري.</div></div>
+    <div class="pcard"><div class="q">ما التكلفة الاقتصادية وجدوى الاستثمار؟<span class="new">مُضاف</span></div><div class="why">تكلفة جمع البيانات والتدريب وصيانة التطبيق مقابل الخسائر الموفّرة، ونموذج استدامة التشغيل.</div></div>
+    <div class="pcard"><div class="q">ما قابلية التوسّع إلى محاصيل/أمراض/مناطق جديدة؟<span class="new">مُضاف</span></div><div class="why">آلية التوسّع التدريجي (تعلّم مستمر، توسيع دوري للبيانات) دون إعادة بناء كاملة.</div></div>
+    <div class="pcard"><div class="q">ما معايير النجاح الميداني (KPIs)؟<span class="new">مُضاف</span></div><div class="why">دقة ميدانية مستهدفة، معدّل تبنّي المزارعين، زمن استجابة، نسبة التوصيات المنفّذة، ونسبة تقليل الخسائر.</div></div>
+
+    <h3 class="h">١٨.٤ مؤشرات الأداء الرئيسية المقترحة (KPIs)</h3>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>المؤشّر</th><th>الهدف الإرشادي</th></tr></thead>
+        <tbody>
+          <tr><td>الدقة الميدانية (F1) على صور واقعية</td><td>≥ ٨٥٪ (لا الدقة المخبرية)</td></tr>
+          <tr><td>زمن الاستدلال على الجهاز</td><td>أقل من ثانيتين دون إنترنت</td></tr>
+          <tr><td>حجم النموذج</td><td>≤ ٢٥ ميجابايت</td></tr>
+          <tr><td>معدّل تبنّي المزارعين / الاستخدام المتكرّر</td><td>يُقاس عبر تجربة ميدانية</td></tr>
+          <tr><td>نسبة التوصيات المنفّذة فعليًا</td><td>مؤشّر على الثقة والفائدة</td></tr>
+          <tr><td>الأثر: نسبة تقليل الخسائر</td><td>يُقدَّر عبر مجموعات مقارنة</td></tr>
+        </tbody>
+      </table>
+    </div>
   </section>
 
 </main>
@@ -477,6 +572,7 @@
   <div class="wrap">
     <p class="leaf">التشخيص المبكر لأمراض المحاصيل من صور الأوراق</p>
     <p>تقرير عن فكرة بحثية معتمدة · المجال: الزراعة الذكية · الزاوية: استخدام CNN لكشف أمراض المحاصيل من صور الأوراق.</p>
+    <p>يتضمّن التقرير في نهايته <a href="#s18">سجلّ هندسة الموجهات (Prompt Engineering Log)</a>.</p>
     <p>صُمّمت هذه الصفحة للنشر على GitHub Pages — احفظها باسم <code>index.html</code>.</p>
   </div>
 </footer>
@@ -484,42 +580,16 @@
 <button id="toTop" aria-label="العودة للأعلى">↑</button>
 
 <script>
-  // reading progress (RTL)
-  const prog = document.getElementById('progress');
-  const topbar = document.getElementById('topbar');
-  const toTop = document.getElementById('toTop');
-  const hero = document.querySelector('header.hero');
-  function onScroll(){
-    const h = document.documentElement;
-    const scrolled = h.scrollTop;
-    const max = h.scrollHeight - h.clientHeight;
-    prog.style.width = (max>0 ? (scrolled/max*100) : 0) + '%';
-    const past = scrolled > (hero.offsetHeight - 60);
-    topbar.classList.toggle('show', past);
-    toTop.classList.toggle('show', scrolled > 600);
-  }
-  document.addEventListener('scroll', onScroll, {passive:true});
-  onScroll();
-  toTop.addEventListener('click', ()=>window.scrollTo({top:0,behavior:'smooth'}));
-
-  // scroll reveal
-  const io = new IntersectionObserver((entries)=>{
-    entries.forEach(e=>{ if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target);} });
-  },{threshold:.12, rootMargin:'0px 0px -40px 0px'});
+  const prog=document.getElementById('progress'),topbar=document.getElementById('topbar'),toTop=document.getElementById('toTop'),hero=document.querySelector('header.hero');
+  function onScroll(){const h=document.documentElement,s=h.scrollTop,m=h.scrollHeight-h.clientHeight;
+    prog.style.width=(m>0?(s/m*100):0)+'%';topbar.classList.toggle('show',s>(hero.offsetHeight-60));toTop.classList.toggle('show',s>600);}
+  document.addEventListener('scroll',onScroll,{passive:true});onScroll();
+  toTop.addEventListener('click',()=>window.scrollTo({top:0,behavior:'smooth'}));
+  const io=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target);}})},{threshold:.1,rootMargin:'0px 0px -40px 0px'});
   document.querySelectorAll('section.sec').forEach(s=>io.observe(s));
-
-  // active TOC link
-  const links = [...document.querySelectorAll('#tocGrid a')];
-  const map = {};
-  links.forEach(a=>map[a.getAttribute('href').slice(1)] = a);
-  const spy = new IntersectionObserver((entries)=>{
-    entries.forEach(e=>{
-      if(e.isIntersecting){
-        links.forEach(l=>l.classList.remove('active'));
-        const a = map[e.target.id]; if(a) a.classList.add('active');
-      }
-    });
-  },{rootMargin:'-45% 0px -50% 0px'});
+  const links=[...document.querySelectorAll('#tocGrid a')],map={};
+  links.forEach(a=>map[a.getAttribute('href').slice(1)]=a);
+  const spy=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting){links.forEach(l=>l.classList.remove('active'));const a=map[e.target.id];if(a)a.classList.add('active');}})},{rootMargin:'-45% 0px -50% 0px'});
   document.querySelectorAll('section.sec').forEach(s=>spy.observe(s));
 </script>
 </body>
