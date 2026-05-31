@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>إدارة مرور ذكية بالرؤية الحاسوبية — مقترح بحثي</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Reem+Kufi:wght@500;600;700&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#080b14; --bg2:#0d1322; --panel:rgba(255,255,255,.035);
+    --line:rgba(255,255,255,.09); --line2:rgba(255,255,255,.16);
+    --ink:#eaf0fb; --muted:#8a96b4; --faint:#5d6786;
+    --cyan:#34e3d6; --cyan-d:#11b9ad; --amber:#f7a93b; --green:#46df8d; --red:#ff5d70;
+    --display:'Reem Kufi',sans-serif; --body:'IBM Plex Sans Arabic',sans-serif; --mono:'IBM Plex Mono',monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    font-family:var(--body); background:var(--bg); color:var(--ink);
+    line-height:1.85; overflow-x:hidden; -webkit-font-smoothing:antialiased;
+    background-image:
+      radial-gradient(900px 500px at 88% -8%, rgba(52,227,214,.13), transparent 60%),
+      radial-gradient(800px 600px at 4% 12%, rgba(247,169,59,.09), transparent 55%);
+  }
+  .tok{font-family:var(--mono); font-size:.86em; color:var(--cyan); direction:ltr; unicode-bidi:isolate; letter-spacing:.2px}
+  .wrap{max-width:1140px; margin-inline:auto; padding-inline:24px}
+
+  /* ---------- decorative grid backdrop ---------- */
+  .grid-bg{position:fixed; inset:0; z-index:0; pointer-events:none; opacity:.5;
+    background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+    background-size:54px 54px;
+    -webkit-mask-image:radial-gradient(ellipse 120% 80% at 70% 0%, #000 20%, transparent 75%);
+    mask-image:radial-gradient(ellipse 120% 80% at 70% 0%, #000 20%, transparent 75%);}
+  .scan{position:fixed; top:0; right:0; left:0; height:2px; z-index:1; pointer-events:none;
+    background:linear-gradient(90deg,transparent,var(--cyan),transparent); opacity:.55;
+    filter:drop-shadow(0 0 8px var(--cyan)); animation:scan 7s linear infinite}
+  @keyframes scan{0%{transform:translateY(-4px)}50%{transform:translateY(62vh)}100%{transform:translateY(-4px)}}
+
+  /* ---------- top bar ---------- */
+  header{position:sticky; top:0; z-index:30; backdrop-filter:blur(10px);
+    background:rgba(8,11,20,.72); border-bottom:1px solid var(--line)}
+  .nav{display:flex; align-items:center; justify-content:space-between; height:62px}
+  .brand{display:flex; align-items:center; gap:11px; font-family:var(--display); font-weight:700; font-size:1.05rem; letter-spacing:.3px}
+  .brand .dot{width:11px;height:11px;border-radius:50%;background:var(--cyan);box-shadow:0 0 0 4px rgba(52,227,214,.16),0 0 14px var(--cyan)}
+  .nav nav{display:flex; gap:26px; font-size:.92rem}
+  .nav nav a{color:var(--muted); text-decoration:none; transition:color .2s; position:relative}
+  .nav nav a:hover{color:var(--ink)}
+  .nav nav a::after{content:"";position:absolute;inset-inline:0;bottom:-6px;height:2px;background:var(--cyan);transform:scaleX(0);transform-origin:right;transition:transform .25s}
+  .nav nav a:hover::after{transform:scaleX(1)}
+  @media(max-width:780px){.nav nav{display:none}}
+
+  /* ---------- hero ---------- */
+  .hero{position:relative; z-index:2; padding:84px 0 60px}
+  .badge{display:inline-flex; align-items:center; gap:9px; font-size:.82rem; color:var(--cyan);
+    border:1px solid rgba(52,227,214,.32); background:rgba(52,227,214,.07); padding:6px 15px; border-radius:100px; font-weight:600}
+  .badge .pulse{width:7px;height:7px;border-radius:50%;background:var(--cyan);animation:pulse 1.8s infinite}
+  @keyframes pulse{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(52,227,214,.5)}50%{opacity:.6;box-shadow:0 0 0 6px rgba(52,227,214,0)}}
+  h1{font-family:var(--display); font-weight:700; font-size:clamp(2.1rem,5.6vw,4rem); line-height:1.22; margin:22px 0 0; letter-spacing:-.5px}
+  h1 .hl{color:transparent; background:linear-gradient(110deg,var(--cyan),#7fe9ff); -webkit-background-clip:text; background-clip:text}
+  .rq{margin-top:24px; max-width:760px; font-size:clamp(1.02rem,2vw,1.22rem); color:#c4cee6;
+    border-inline-start:3px solid var(--amber); padding-inline-start:18px}
+  .rq b{color:var(--amber); font-weight:600}
+  .chips{display:flex; flex-wrap:wrap; gap:10px; margin-top:30px}
+  .chip{font-size:.86rem; color:var(--muted); border:1px solid var(--line2); border-radius:9px; padding:7px 14px; background:var(--panel)}
+  .chip b{color:var(--ink); font-weight:600}
+  .cta{display:flex; gap:14px; margin-top:34px; flex-wrap:wrap}
+  .btn{font-family:var(--body); font-weight:600; font-size:.95rem; padding:12px 24px; border-radius:11px; text-decoration:none; cursor:pointer; border:1px solid transparent; transition:transform .18s,box-shadow .25s}
+  .btn.primary{background:linear-gradient(120deg,var(--cyan-d),var(--cyan)); color:#04231f; box-shadow:0 10px 30px -10px rgba(52,227,214,.6)}
+  .btn.primary:hover{transform:translateY(-2px); box-shadow:0 16px 38px -10px rgba(52,227,214,.7)}
+  .btn.ghost{border-color:var(--line2); color:var(--ink); background:var(--panel)}
+  .btn.ghost:hover{border-color:var(--cyan); color:var(--cyan)}
+
+  /* ---------- stats ---------- */
+  .stats{position:relative; z-index:2; display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin:18px 0 4px}
+  @media(max-width:780px){.stats{grid-template-columns:repeat(2,1fr)}}
+  .stat{background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:22px 20px; position:relative; overflow:hidden}
+  .stat::before{content:"";position:absolute;inset-block:0;inset-inline-start:0;width:3px;background:var(--cyan);opacity:.8}
+  .stat:nth-child(2)::before{background:var(--amber)} .stat:nth-child(3)::before{background:var(--green)} .stat:nth-child(4)::before{background:#7fb6ff}
+  .stat .num{font-family:var(--display); font-weight:700; font-size:2.5rem; line-height:1; color:#fff}
+  .stat .lbl{color:var(--muted); font-size:.9rem; margin-top:9px}
+
+  /* ---------- sections ---------- */
+  section{position:relative; z-index:2; padding:64px 0}
+  .eyebrow{font-family:var(--mono); font-size:.78rem; letter-spacing:2px; color:var(--cyan); text-transform:uppercase; direction:ltr; text-align:right}
+  h2{font-family:var(--display); font-weight:700; font-size:clamp(1.6rem,3.6vw,2.4rem); margin:10px 0 8px; letter-spacing:-.3px}
+  .lead{color:#c0cbe4; max-width:780px; font-size:1.05rem}
+  .two{display:grid; grid-template-columns:1fr 1fr; gap:26px; margin-top:34px}
+  @media(max-width:820px){.two{grid-template-columns:1fr}}
+  .card{background:var(--panel); border:1px solid var(--line); border-radius:18px; padding:26px; transition:transform .25s,border-color .25s, background .25s}
+  .card:hover{transform:translateY(-4px); border-color:var(--line2); background:rgba(255,255,255,.05)}
+  .card h3{font-family:var(--display); font-weight:600; font-size:1.18rem; margin-bottom:10px; display:flex; align-items:center; gap:10px}
+  .card h3 .ic{flex:none; color:var(--cyan)}
+  .card.warn h3 .ic{color:var(--amber)}
+  .card p{color:#b9c4dd; font-size:.98rem}
+
+  /* ---------- architecture diagram ---------- */
+  .arch{margin-top:40px; background:linear-gradient(180deg,rgba(13,19,34,.7),rgba(8,11,20,.4)); border:1px solid var(--line); border-radius:22px; padding:34px 26px; overflow:hidden}
+  .tiers{display:flex; gap:14px; margin-bottom:26px; flex-wrap:wrap}
+  .tierTag{flex:1; min-width:240px; display:flex; gap:13px; align-items:flex-start; padding:14px 16px; border-radius:14px; border:1px solid var(--line)}
+  .tierTag.macro{background:rgba(247,169,59,.07); border-color:rgba(247,169,59,.3)}
+  .tierTag.micro{background:rgba(52,227,214,.07); border-color:rgba(52,227,214,.3)}
+  .tierTag .k{font-family:var(--mono); font-size:.72rem; letter-spacing:1px; direction:ltr}
+  .tierTag.macro .k{color:var(--amber)} .tierTag.micro .k{color:var(--cyan)}
+  .tierTag b{font-family:var(--display); font-weight:600; font-size:1.02rem; display:block; margin-bottom:2px}
+  .tierTag small{color:var(--muted); font-size:.86rem; line-height:1.6}
+
+  .pipe{display:flex; align-items:stretch; gap:0; flex-wrap:wrap; justify-content:center}
+  .node{flex:1 1 150px; min-width:138px; max-width:200px; background:#0c1322; border:1px solid var(--line2); border-radius:15px; padding:16px 13px; text-align:center; position:relative; transition:transform .25s,box-shadow .25s,border-color .25s}
+  .node:hover{transform:translateY(-5px); border-color:var(--cyan); box-shadow:0 14px 34px -16px rgba(52,227,214,.55)}
+  .node .nic{width:42px;height:42px;margin:0 auto 11px; display:grid; place-items:center; border-radius:11px; background:rgba(52,227,214,.12); color:var(--cyan)}
+  .node.out .nic{background:rgba(70,223,141,.14); color:var(--green)}
+  .node.ctrl .nic{background:rgba(247,169,59,.14); color:var(--amber)}
+  .node b{font-family:var(--display); font-weight:600; font-size:.98rem; display:block}
+  .node small{color:var(--muted); font-size:.78rem; display:block; margin-top:3px; min-height:30px}
+  .node .src{position:absolute; top:9px; inset-inline-start:9px; font-family:var(--mono); font-size:.62rem; letter-spacing:.5px; padding:2px 6px; border-radius:6px; direction:ltr}
+  .src.macro{color:var(--amber); background:rgba(247,169,59,.14)}
+  .src.micro{color:var(--cyan); background:rgba(52,227,214,.14)}
+
+  /* connector: flows RIGHT -> LEFT (RTL) */
+  .flow{flex:0 0 38px; align-self:center; height:30px; position:relative; min-width:30px}
+  .flow .track{position:absolute; top:50%; inset-inline:3px; height:2px; transform:translateY(-50%);
+    background-image:linear-gradient(90deg,var(--cyan) 0 50%, transparent 50% 100%); background-size:12px 2px;
+    animation:flowLeft 1s linear infinite; opacity:.85}
+  @keyframes flowLeft{from{background-position-x:0}to{background-position-x:-12px}} /* negative => moves leftward (RTL) */
+  .flow .head{position:absolute; top:50%; inset-inline-start:0; transform:translateY(-50%); color:var(--cyan); font-size:1rem; line-height:1}
+  @media(max-width:680px){
+    .pipe{flex-direction:column; align-items:center}
+    .node{max-width:320px; width:100%}
+    .flow{transform:rotate(-90deg); flex-basis:30px}
+  }
+
+  /* ---------- dataset cards ---------- */
+  .grid3{display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-top:30px}
+  @media(max-width:820px){.grid3{grid-template-columns:1fr 1fr}}
+  @media(max-width:520px){.grid3{grid-template-columns:1fr}}
+  .ds{background:var(--panel); border:1px solid var(--line); border-radius:15px; padding:20px; transition:border-color .2s,transform .2s}
+  .ds:hover{border-color:var(--cyan); transform:translateY(-3px)}
+  .ds .name{font-family:var(--mono); font-weight:600; color:var(--cyan); direction:ltr; text-align:right; font-size:1.02rem}
+  .ds .meta{display:inline-block; margin-top:8px; font-size:.74rem; color:var(--amber); border:1px solid rgba(247,169,59,.3); border-radius:7px; padding:2px 8px; background:rgba(247,169,59,.06)}
+  .ds p{color:#aab6d2; font-size:.9rem; margin-top:11px}
+
+  /* ---------- timeline ---------- */
+  .tl{position:relative; margin-top:40px; padding-inline-start:6px}
+  .tl::before{content:"";position:absolute; inset-inline-start:18px; top:6px; bottom:6px; width:2px;
+    background:linear-gradient(180deg,var(--cyan),rgba(52,227,214,.1))}
+  .step{position:relative; padding-inline-start:54px; padding-bottom:26px}
+  .step:last-child{padding-bottom:0}
+  .step .dot{position:absolute; inset-inline-start:8px; top:2px; width:22px;height:22px; border-radius:50%;
+    background:var(--bg2); border:2px solid var(--cyan); display:grid; place-items:center; font-family:var(--display); font-size:.78rem; font-weight:700; color:var(--cyan)}
+  .step h4{font-family:var(--display); font-weight:600; font-size:1.08rem}
+  .step p{color:#a9b5d1; font-size:.92rem}
+  .step .deliv{display:inline-block; margin-top:6px; font-size:.78rem; color:var(--green); border:1px solid rgba(70,223,141,.3); border-radius:7px; padding:2px 9px; background:rgba(70,223,141,.06)}
+
+  /* ---------- callout ---------- */
+  .callout{margin-top:30px; background:linear-gradient(120deg,rgba(247,169,59,.1),rgba(247,169,59,.03)); border:1px solid rgba(247,169,59,.35);
+    border-inline-start:5px solid var(--amber); border-radius:16px; padding:24px 26px}
+  .callout .tag{font-family:var(--display); font-weight:700; color:var(--amber); display:flex; align-items:center; gap:9px; margin-bottom:8px}
+  .callout p{color:#d7c9ad; font-size:.98rem}
+
+  /* ---------- outcomes ---------- */
+  .out-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:16px; margin-top:30px}
+  @media(max-width:680px){.out-grid{grid-template-columns:1fr}}
+  .out{display:flex; gap:14px; align-items:flex-start; background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:18px}
+  .out .check{flex:none; width:30px;height:30px;border-radius:9px; background:rgba(70,223,141,.13); color:var(--green); display:grid; place-items:center}
+  .out span{color:#c2cde6; font-size:.96rem}
+
+  footer{position:relative; z-index:2; border-top:1px solid var(--line); margin-top:24px; padding:38px 0; color:var(--muted); font-size:.9rem}
+  .foot{display:flex; justify-content:space-between; gap:18px; flex-wrap:wrap; align-items:center}
+  .foot .brand{color:var(--ink)}
+
+  /* reveal */
+  .rv{opacity:0; transform:translateY(26px); transition:opacity .7s cubic-bezier(.2,.7,.2,1), transform .7s cubic-bezier(.2,.7,.2,1)}
+  .rv.in{opacity:1; transform:none}
+  .icn{width:1em;height:1em;display:inline-block;vertical-align:-.12em}
+</style>
+</head>
+<body>
+<div class="grid-bg"></div>
+<div class="scan"></div>
+
+<header>
+  <div class="wrap nav">
+    <div class="brand"><span class="dot"></span> رؤية المرور الذكي</div>
+    <nav>
+      <a href="#idea">الفكرة</a>
+      <a href="#arch">التصميم</a>
+      <a href="#method">المنهجية</a>
+      <a href="#plan">الخطة</a>
+      <a href="#outcomes">النتائج</a>
+    </nav>
+  </div>
+</header>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="wrap">
+    <span class="badge rv"><span class="pulse"></span> مجال البحث · المدن الذكية</span>
+    <h1 class="rv">إدارة مرور ذكية<br>بـ<span class="hl">الرؤية الحاسوبية</span></h1>
+    <p class="rq rv">كيف يمكن لنماذج <b>CNN</b> المدرّبة على الصور الفضائية وكاميرات المراقبة أن تحسّن كفاءة إدارة المرور وتقلّل الازدحام في المدن الذكية؟</p>
+    <div class="chips rv">
+      <span class="chip">المقرر: <b>التعلّم العميق المتقدّم</b> · <span class="tok">AI4203</span></span>
+      <span class="chip">المشرف: <b>د. أحمد الهندي</b></span>
+      <span class="chip"><b>١٤٤٧هـ</b> / ٢٠٢٦م</span>
+    </div>
+    <div class="cta rv">
+      <a class="btn primary" href="#arch">استكشاف التصميم الهجين</a>
+      <a class="btn ghost" href="#method">المنهجية والبيانات</a>
+    </div>
+
+    <div class="stats">
+      <div class="stat rv"><div class="num" data-target="2" data-suffix="">٠</div><div class="lbl">طبقتان: كلّية + لحظية</div></div>
+      <div class="stat rv"><div class="num" data-target="86" data-suffix="٪">٠</div><div class="lbl">أقصى خفض للتأخّر بالتعلّم المعزّز (مرجعياً)</div></div>
+      <div class="stat rv"><div class="num" data-target="54" data-suffix="">٠</div><div class="lbl">مدينة في بيانات <span class="tok">VME</span> الإقليمية</div></div>
+      <div class="stat rv"><div class="num" data-target="5" data-suffix="">٠</div><div class="lbl">مراحل تنفيذية</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- IDEA -->
+<section id="idea">
+  <div class="wrap">
+    <div class="eyebrow rv">PROBLEM &amp; IDEA</div>
+    <h2 class="rv">المشكلة والفكرة المحورية</h2>
+    <p class="lead rv">تعتمد أنظمة إدارة المرور التقليدية على توقيتات ثابتة وحسّاسات أرضية محدودة التغطية، فتعجز عن الاستجابة الديناميكية لتغيّر الطلب المروري. الفكرة هي «إدراك» المشهد المروري بصرياً ثم اتخاذ قرار تحكّم مُحسَّن.</p>
+    <div class="two">
+      <div class="card rv">
+        <h3><span class="ic"><svg class="icn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 9v4m0 4h.01M10.3 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.7 3.86a2 2 0 0 0-3.42 0Z"/></svg></span>المشكلة</h3>
+        <p>غياب رؤية شاملة وآنية لحالة الشبكة المرورية على مستوى المدينة، ما ينتج توقيتات إشارات غير مثلى واختناقات متكرّرة وعجزاً عن إعادة التوجيه الاستباقي.</p>
+      </div>
+      <div class="card rv">
+        <h3><span class="ic"><svg class="icn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9.66 18h4.68M12 2v2m6.36.64-1.42 1.42M22 12h-2M4 12H2m3.05-6.95L6.46 6.46M12 6a6 6 0 0 0-3.6 10.8h7.2A6 6 0 0 0 12 6Z"/></svg></span>الفكرة</h3>
+        <p>تحويل مصدرٍ بصري واسع التغطية (الصور الفضائية) ومصدرٍ عالي التحديث الزمني (كاميرات المراقبة) إلى إشارة تحكّم موثوقة تُقلّص زمن التنقّل فعلياً، عبر منظومة قرار واحدة.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ARCHITECTURE -->
+<section id="arch">
+  <div class="wrap">
+    <div class="eyebrow rv">HYBRID ARCHITECTURE</div>
+    <h2 class="rv">التصميم الهجين ثنائي الطبقات</h2>
+    <p class="lead rv">يفصل التصميم بين مستويين زمنيين متكاملين بدل خلطهما، فيُسند لكلّ مصدر بصري الدور الذي يناسب خصائصه الزمانية والمكانية.</p>
+
+    <div class="arch rv">
+      <div class="tiers">
+        <div class="tierTag macro">
+          <svg class="icn" style="width:26px;height:26px;color:var(--amber)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M5 12a7 7 0 0 1 7-7m0 14a7 7 0 0 1-7-7m13.5-6.5L13 8m-2 8-5.5 5.5M9 9l6 6"/><circle cx="12" cy="12" r="1.6"/></svg>
+          <div><span class="k">MACRO · SATELLITE</span><b>الطبقة الكلّية (استراتيجية)</b><small>الصور الفضائية لرصد كثافة المرور وأنماطه على مستوى المدينة وعلى مدى ساعات/أيام — قرارات بعيدة المدى وإعادة توجيه.</small></div>
+        </div>
+        <div class="tierTag micro">
+          <svg class="icn" style="width:26px;height:26px;color:var(--cyan)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M14.5 4h-5L8 6H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-4l-1.5-2Z"/><circle cx="12" cy="13" r="3.2"/></svg>
+          <div><span class="k">MICRO · CAMERAS</span><b>الطبقة اللحظية (تشغيلية)</b><small>كاميرات المراقبة والطائرات المسيّرة لكشف المركبات وتقدير الكثافة لحظياً عند التقاطعات — تغذية التحكّم في الزمن الفعلي.</small></div>
+        </div>
+      </div>
+
+      <!-- pipeline flows RIGHT -> LEFT -->
+      <div class="pipe">
+        <div class="node rv">
+          <span class="src macro">SAT</span>
+          <div class="nic"><svg class="icn" style="width:22px;height:22px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M5 12a7 7 0 0 1 7-7m0 14a7 7 0 0 1-7-7m13-6L13 9m-2 8-5 6"/><circle cx="12" cy="12" r="1.6"/></svg></div>
+          <b>صور فضائية</b><small>Maxar · Sentinel-2 · PlanetScope</small>
+        </div>
+        <div class="flow"><span class="track"></span><span class="head">◄</span></div>
+
+        <div class="node rv">
+          <span class="src micro">CAM</span>
+          <div class="nic"><svg class="icn" style="width:22px;height:22px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M14.5 4h-5L8 6H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-4l-1.5-2Z"/><circle cx="12" cy="13" r="3"/></svg></div>
+          <b>كاميرات / مسيّرات</b><small>تدفّق لحظي عند التقاطعات</small>
+        </div>
+        <div class="flow"><span class="track"></span><span class="head">◄</span></div>
+
+        <div class="node rv">
+          <div class="nic"><svg class="icn" style="width:22px;height:22px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="5" cy="6" r="2"/><circle cx="5" cy="18" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="7" r="2"/><circle cx="19" cy="17" r="2"/><path d="M7 6l3 5m-3 7 3-5m4-1 3-3m-3 4 3 2"/></svg></div>
+          <b>الإدراك البصري</b><small><span class="tok">CNN</span> كشف + خرائط كثافة</small>
+        </div>
+        <div class="flow"><span class="track"></span><span class="head">◄</span></div>
+
+        <div class="node rv">
+          <div class="nic"><svg class="icn" style="width:22px;height:22px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 3v18h18M7 14l3-4 3 3 5-7"/></svg></div>
+          <b>التنبّؤ بالاختناق</b><small>نموذج تسلسلي <span class="tok">LSTM</span></small>
+        </div>
+        <div class="flow"><span class="track"></span><span class="head">◄</span></div>
+
+        <div class="node ctrl rv">
+          <div class="nic"><svg class="icn" style="width:22px;height:22px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 3v3m0 12v3M3 12h3m12 0h3M6 6l2 2m8 8 2 2m0-12-2 2M8 16l-2 2"/><circle cx="12" cy="12" r="3.4"/></svg></div>
+          <b>تحكّم تكيّفي</b><small>وكيل <span class="tok">RL</span> · <span class="tok">DQN/PPO</span></small>
+        </div>
+        <div class="flow"><span class="track"></span><span class="head">◄</span></div>
+
+        <div class="node out rv">
+          <div class="nic"><svg class="icn" style="width:22px;height:22px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="8" y="2" width="8" height="20" rx="4"/><circle cx="12" cy="7" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="12" cy="17" r="1.4"/></svg></div>
+          <b>إشارات تكيّفية</b><small>ازدحام أقل · زمن تنقّل أقصر</small>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- METHOD -->
+<section id="method">
+  <div class="wrap">
+    <div class="eyebrow rv">METHODOLOGY &amp; DATA</div>
+    <h2 class="rv">المنهجية ومجموعات البيانات</h2>
+    <p class="lead rv">يُدرَّب نموذج الكشف بنقل التعلّم على مجموعات قياسية للصور العلوية، ويُدرَّب وكيل التحكّم داخل بيئة محاكاة مرورية (<span class="tok">SUMO</span>) قبل أي نشر فعلي.</p>
+    <div class="grid3">
+      <div class="ds rv"><div class="name">VME / CDSI</div><span class="meta">+١٠٠ ألف مركبة</span><p>مركبات في الشرق الأوسط من صور Maxar تغطّي ٥٤ مدينة في ١٢ دولة — الأقرب للسياق الإقليمي العربي.</p></div>
+      <div class="ds rv"><div class="name">xView</div><span class="meta">٣٠ سم/بكسل</span><p>من أكبر مجموعات الكشف من الأقمار الصناعية، مناسبة للأهداف الدقيقة محدودة البكسلات.</p></div>
+      <div class="ds rv"><div class="name">DOTA</div><span class="meta">+١٨٨ ألف نموذج</span><p>مجموعة كبيرة للكشف في الصور الجوّية بصناديق موجّهة، تشمل المركبات الصغيرة والكبيرة.</p></div>
+      <div class="ds rv"><div class="name">VEDAI / COWC</div><span class="meta">متعدّد النطاقات</span><p>مرجعان كلاسيكيان لكشف المركبات الدقيقة في الصور الجوّية، مناسبان للمقارنة المعيارية.</p></div>
+      <div class="ds rv"><div class="name">Faster R-CNN / YOLO</div><span class="meta">معماريات الكشف</span><p>صناديق الإحاطة للكاميرات اللحظية، مع نهج خرائط الكثافة (<span class="tok">CSRNet</span>) للصور الفضائية.</p></div>
+      <div class="ds rv"><div class="name">mAP · MAE · Delay</div><span class="meta">مقاييس التقييم</span><p>جودة الكشف بـ <span class="tok">mAP</span>، ودقّة العدّ بـ <span class="tok">MAE</span>، والأثر بزمن التنقّل وطول الطابور مقابل خطّ الأساس.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- PLAN -->
+<section id="plan">
+  <div class="wrap">
+    <div class="eyebrow rv">TIMELINE</div>
+    <h2 class="rv">الخطة الزمنية</h2>
+    <div class="tl">
+      <div class="step rv"><span class="dot">١</span><h4>التهيئة</h4><p>مراجعة الأدبيات وتجهيز مجموعات البيانات والمعالجة المسبقة.</p><span class="deliv">بيانات جاهزة + مراجعة</span></div>
+      <div class="step rv"><span class="dot">٢</span><h4>الإدراك البصري</h4><p>بناء وتدريب وحدة الكشف وتقدير الكثافة وتقييمها على الصور العلوية.</p><span class="deliv">نموذج كشف مُقيَّم</span></div>
+      <div class="step rv"><span class="dot">٣</span><h4>التنبّؤ</h4><p>تطوير وحدة التنبّؤ بالاختناق وربطها بمخرجات الكشف.</p><span class="deliv">وحدة تنبّؤ</span></div>
+      <div class="step rv"><span class="dot">٤</span><h4>التحكّم</h4><p>بناء وكيل التحكّم التكيّفي ودمجه داخل بيئة المحاكاة.</p><span class="deliv">منظومة متكاملة</span></div>
+      <div class="step rv"><span class="dot">٥</span><h4>التقييم</h4><p>التجارب وقياس الأثر مقابل خطّ الأساس وكتابة التقرير النهائي.</p><span class="deliv">نتائج + تقرير</span></div>
+    </div>
+
+    <div class="callout rv">
+      <div class="tag"><svg class="icn" style="width:20px;height:20px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 9v4m0 4h.01M10.3 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.7 3.86a2 2 0 0 0-3.42 0Z"/></svg> ملاحظة منهجية حرجة</div>
+      <p>الصور الفضائية ليست مصدراً «آنياً» بطبيعتها (زمن إعادة زيارة طويل، تأثّر بالغيوم، مركبات بحجم عشرات البكسلات)، فلا تكفي وحدها لتحكّم لحظي ثانية بثانية. لذا حُصِر دورها في التحليل الكلّي الاستراتيجي، وأُوكِل التحكّم اللحظي إلى الكاميرات والمسيّرات — وهو جوهر التصميم الهجين أعلاه.</p>
+    </div>
+  </div>
+</section>
+
+<!-- OUTCOMES -->
+<section id="outcomes">
+  <div class="wrap">
+    <div class="eyebrow rv">EXPECTED OUTCOMES</div>
+    <h2 class="rv">النتائج المتوقّعة</h2>
+    <div class="out-grid">
+      <div class="out rv"><span class="check"><svg class="icn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 6 9 17l-5-5"/></svg></span><span>نموذج كشف/تقدير كثافة بأداء تنافسي على مجموعات الصور العلوية القياسية.</span></div>
+      <div class="out rv"><span class="check"><svg class="icn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 6 9 17l-5-5"/></svg></span><span>إطار هجين يوحّد بين المصدر الفضائي الكلّي والمصدر الكاميرائي اللحظي.</span></div>
+      <div class="out rv"><span class="check"><svg class="icn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 6 9 17l-5-5"/></svg></span><span>تقليص قابل للقياس في زمن التنقّل وطول الطوابير ضمن المحاكاة.</span></div>
+      <div class="out rv"><span class="check"><svg class="icn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 6 9 17l-5-5"/></svg></span><span>توصيات عملية حول جدوى النشر والحدود الواقعية لكلّ مصدر بصري.</span></div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap foot">
+    <div class="brand" style="display:flex;align-items:center;gap:10px;font-family:var(--display);font-weight:700"><span style="width:10px;height:10px;border-radius:50%;background:var(--cyan);box-shadow:0 0 12px var(--cyan)"></span> رؤية المرور الذكي</div>
+    <div>مقترح بحثي · مجال المدن الذكية · <span class="tok">Advanced Deep Learning (AI4203)</span></div>
+  </div>
+</footer>
+
+<script>
+  const toAr = n => String(n).replace(/[0-9]/g, d => "٠١٢٣٤٥٦٧٨٩"[d]);
+
+  // staggered reveal
+  const io = new IntersectionObserver((entries)=>{
+    entries.forEach((e,i)=>{
+      if(e.isIntersecting){
+        e.target.style.transitionDelay = (e.target.dataset.d || (i%6)*60) + "ms";
+        e.target.classList.add("in");
+        io.unobserve(e.target);
+        if(e.target.querySelector && e.target.matches(".stat")) animateStat(e.target);
+      }
+    });
+  }, {threshold:.15});
+  document.querySelectorAll(".rv").forEach(el=>io.observe(el));
+
+  function animateStat(stat){
+    const el = stat.querySelector(".num");
+    if(!el || el.dataset.done) return; el.dataset.done="1";
+    const target = +el.dataset.target, suf = el.dataset.suffix || "";
+    const dur = 1100; const t0 = performance.now();
+    function tick(t){
+      const p = Math.min(1,(t-t0)/dur);
+      const ease = 1-Math.pow(1-p,3);
+      el.textContent = toAr(Math.round(target*ease)) + suf;
+      if(p<1) requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  }
+</script>
+</body>
+</html>
