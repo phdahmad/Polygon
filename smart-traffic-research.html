@@ -170,6 +170,44 @@
   .foot{display:flex; justify-content:space-between; gap:18px; flex-wrap:wrap; align-items:center}
   .foot .brand{color:var(--ink)}
 
+  /* ---------- model families ---------- */
+  .mf-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:16px; margin-top:30px}
+  @media(max-width:760px){.mf-grid{grid-template-columns:1fr}}
+  .mf{position:relative; background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:22px; transition:transform .25s,border-color .25s}
+  .mf:hover{transform:translateY(-4px); border-color:var(--line2)}
+  .mf .mf-top{display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:10px}
+  .mf .fam{font-family:var(--mono); font-weight:600; font-size:1.18rem; color:var(--cyan); direction:ltr}
+  .tagx{font-size:.74rem; font-weight:600; padding:3px 11px; border-radius:100px; white-space:nowrap}
+  .tagx.core{color:var(--green); background:rgba(70,223,141,.12); border:1px solid rgba(70,223,141,.32)}
+  .tagx.aux{color:#7fd6ff; background:rgba(127,214,255,.1); border:1px solid rgba(127,214,255,.3)}
+  .tagx.comp{color:var(--amber); background:rgba(247,169,59,.1); border:1px solid rgba(247,169,59,.34)}
+  .mf p{color:#b4c0da; font-size:.94rem}
+  .mf .loc{display:inline-block; margin-top:11px; font-size:.76rem; color:var(--muted); border:1px solid var(--line); border-radius:7px; padding:2px 9px}
+
+  /* ---------- case studies ---------- */
+  .cs-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-top:30px}
+  @media(max-width:900px){.cs-grid{grid-template-columns:1fr}}
+  .cs{position:relative; background:linear-gradient(180deg,rgba(13,19,34,.7),var(--panel)); border:1px solid var(--line); border-radius:18px; padding:24px; overflow:hidden; transition:transform .25s,border-color .25s}
+  .cs::after{content:"";position:absolute;top:0;inset-inline:0;height:3px;background:linear-gradient(90deg,var(--cyan),transparent)}
+  .cs:nth-child(2)::after{background:linear-gradient(90deg,var(--amber),transparent)}
+  .cs:nth-child(3)::after{background:linear-gradient(90deg,var(--green),transparent)}
+  .cs:hover{transform:translateY(-5px); border-color:var(--line2)}
+  .cs .org{font-family:var(--mono); direction:ltr; text-align:right; color:var(--cyan); font-weight:600; font-size:1.12rem}
+  .cs:nth-child(2) .org{color:var(--amber)} .cs:nth-child(3) .org{color:var(--green)}
+  .cs .place{color:var(--muted); font-size:.84rem; margin-top:2px}
+  .cs .pills{display:flex; flex-wrap:wrap; gap:8px; margin:14px 0}
+  .pill{font-size:.78rem; color:var(--ink); background:rgba(255,255,255,.05); border:1px solid var(--line2); border-radius:8px; padding:4px 10px}
+  .pill b{color:var(--cyan); font-family:var(--mono); direction:ltr}
+  .cs:nth-child(2) .pill b{color:var(--amber)} .cs:nth-child(3) .pill b{color:var(--green)}
+  .cs .lesson{font-size:.9rem; color:#c2cde6; border-inline-start:3px solid var(--line2); padding-inline-start:12px; margin-top:6px}
+  .cs .lesson b{color:var(--ink); font-weight:600}
+
+  /* note callout (cyan) */
+  .note{margin-top:26px; background:linear-gradient(120deg,rgba(52,227,214,.09),rgba(52,227,214,.02)); border:1px solid rgba(52,227,214,.3);
+    border-inline-start:5px solid var(--cyan); border-radius:14px; padding:18px 22px}
+  .note b{color:var(--cyan)}
+  .note p{color:#bfe7e3; font-size:.94rem; margin:0}
+
   /* reveal */
   .rv{opacity:0; transform:translateY(26px); transition:opacity .7s cubic-bezier(.2,.7,.2,1), transform .7s cubic-bezier(.2,.7,.2,1)}
   .rv.in{opacity:1; transform:none}
@@ -187,6 +225,8 @@
       <a href="#idea">الفكرة</a>
       <a href="#arch">التصميم</a>
       <a href="#method">المنهجية</a>
+      <a href="#models">النماذج</a>
+      <a href="#cases">الحالات</a>
       <a href="#plan">الخطة</a>
       <a href="#outcomes">النتائج</a>
     </nav>
@@ -312,6 +352,81 @@
       <div class="ds rv"><div class="name">VEDAI / COWC</div><span class="meta">متعدّد النطاقات</span><p>مرجعان كلاسيكيان لكشف المركبات الدقيقة في الصور الجوّية، مناسبان للمقارنة المعيارية.</p></div>
       <div class="ds rv"><div class="name">Faster R-CNN / YOLO</div><span class="meta">معماريات الكشف</span><p>صناديق الإحاطة للكاميرات اللحظية، مع نهج خرائط الكثافة (<span class="tok">CSRNet</span>) للصور الفضائية.</p></div>
       <div class="ds rv"><div class="name">mAP · MAE · Delay</div><span class="meta">مقاييس التقييم</span><p>جودة الكشف بـ <span class="tok">mAP</span>، ودقّة العدّ بـ <span class="tok">MAE</span>، والأثر بزمن التنقّل وطول الطابور مقابل خطّ الأساس.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- MODEL FAMILIES -->
+<section id="models">
+  <div class="wrap">
+    <div class="eyebrow rv">MODEL FAMILIES</div>
+    <h2 class="rv">عائلات النماذج العميقة الموظّفة</h2>
+    <p class="lead rv">توظّف المنظومة عدّة عائلات من نماذج التعلّم العميق، لكلٍّ منها دورٌ محدّد؛ بعضها جوهري في حلقة الإدراك والتحكّم، وبعضها مكمّل في طبقة الدعم والتفسير.</p>
+    <div class="mf-grid">
+      <div class="mf rv">
+        <div class="mf-top"><span class="fam">CNN</span><span class="tagx core">جوهري</span></div>
+        <p>كشف المركبات وتقدير الكثافة عبر <span class="tok">Faster R-CNN</span> و<span class="tok">YOLO</span> وخرائط الكثافة <span class="tok">CSRNet</span>.</p>
+        <span class="loc">الموقع: الإدراك البصري</span>
+      </div>
+      <div class="mf rv">
+        <div class="mf-top"><span class="fam">GAN</span><span class="tagx aux">داعم</span></div>
+        <p>الدقّة الفائقة للمركبات الدقيقة قبل الكشف (<span class="tok">SRGAN/ESRGAN</span>)، وتوليد بيانات تركيبية للحالات النادرة، وتكييف المجال بين مصادر الصور (<span class="tok">CycleGAN</span>).</p>
+        <span class="loc">الموقع: المعالجة المسبقة وتعزيز البيانات</span>
+      </div>
+      <div class="mf rv">
+        <div class="mf-top"><span class="fam">Transformer</span><span class="tagx core">جوهري</span></div>
+        <p>كاشفات قائمة على المُحوّلات (<span class="tok">DETR</span>، <span class="tok">ViT/Swin</span>)، ومُحوّلات مكانية-زمنية للتنبّؤ بالاختناق كبديل/مكمّل لـ <span class="tok">LSTM</span>.</p>
+        <span class="loc">الموقع: الكشف والتنبّؤ</span>
+      </div>
+      <div class="mf rv">
+        <div class="mf-top"><span class="fam">RAG</span><span class="tagx comp">مكمّل</span></div>
+        <p>طبقة دعم قرار وتفسير موجّهة للمشغّل: نموذج لغوي يسترجع من قاعدة معرفة (سجلّات الحوادث، اللوائح، الأنماط التاريخية) لتوليد تفسيرات وتوصيات وتقارير عربية مسندة.</p>
+        <span class="loc">الموقع: الدعم البشري والتفسير</span>
+      </div>
+    </div>
+    <div class="note rv">
+      <p><b>توضيح للمناقشة:</b> قيمة <span class="tok">RAG</span> هنا في الدعم والتفسير لا في الكشف البصري؛ ويُؤطَّر كطبقة مساعدة للمشغّل لا كجزء من مسار الرؤية الحاسوبية. أمّا <span class="tok">GAN</span> و<span class="tok">Transformer</span> فاندماجهما جوهري وطبيعي.</p>
+    </div>
+  </div>
+</section>
+
+<!-- CASE STUDIES -->
+<section id="cases">
+  <div class="wrap">
+    <div class="eyebrow rv">CASE STUDIES</div>
+    <h2 class="rv">حالات دراسية مرجعية</h2>
+    <p class="lead rv">تستند المنظومة المقترحة إلى دروس مستخلصة من ثلاث منظومات واقعية رائدة في الإدارة الذكية للمرور.</p>
+    <div class="cs-grid">
+      <div class="cs rv">
+        <div class="org">Surtrac</div>
+        <div class="place">بيتسبرغ · جامعة كارنيجي ميلون · تحكّم تكيّفي لامركزي</div>
+        <div class="pills">
+          <span class="pill"><b>↓٢٥٪</b> زمن تنقّل</span>
+          <span class="pill"><b>↓٤٠٪</b> انتظار</span>
+          <span class="pill"><b>↓٢٠٪</b> انبعاثات</span>
+        </div>
+        <p class="lesson"><b>الدرس:</b> اللامركزية والاستجابة اللحظية ثانيةً بثانية تُحقّق مكاسب ملموسة — وهو ما تتبنّاه الطبقة اللحظية.</p>
+      </div>
+      <div class="cs rv">
+        <div class="org">City Brain</div>
+        <div class="place">هانغجو · علي بابا · رؤية حاسوبية على مستوى المدينة</div>
+        <div class="pills">
+          <span class="pill"><b>↑١٥٪</b> سرعة</span>
+          <span class="pill"><b>٩٢٪+</b> كشف حوادث</span>
+          <span class="pill"><b>١٠٠٠+</b> إشارة منسّقة</span>
+        </div>
+        <p class="lesson"><b>الدرس:</b> قيمة الإدراك البصري على مستوى المدينة والتنسيق بين التقاطعات — وهو دور الطبقة الكلّية.</p>
+      </div>
+      <div class="cs rv">
+        <div class="org">Project Green Light</div>
+        <div class="place">Google · توصيات قائمة على تعلّم الآلة · مدن متعدّدة</div>
+        <div class="pills">
+          <span class="pill"><b>↓٣٠٪</b> توقّفات</span>
+          <span class="pill"><b>↓١٠٪</b> انبعاثات</span>
+          <span class="pill"><b>٧٠+</b> تقاطع</span>
+        </div>
+        <p class="lesson"><b>الدرس:</b> قابلية التطبيق السريع على البنية القائمة وأهمية إبقاء «الإنسان في المسار» — نهجٌ يناسب التبنّي التدريجي.</p>
+      </div>
     </div>
   </div>
 </section>
